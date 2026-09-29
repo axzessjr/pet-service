@@ -1,0 +1,12 @@
+{
+  "name": "pet-service",
+  "version": "1.0.0",
+  "description": "Root workspace",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write \"frontend/src/**/*.{ts,tsx,css,html}\" \"backend/src/**/*.ts\" \"backend/test/**/*.ts\""
+  },
+  "devDependencies": {
+    "prettier": "^3.9.9"
+  }
+}
