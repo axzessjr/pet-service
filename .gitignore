@@ -1,2 +1,7 @@
 xample/
 node_modules/
+**/dist/
+**/.venv/
+**/__pycache__/
+recommender/recommendation_pb2.py
+recommender/recommendation_pb2_grpc.py

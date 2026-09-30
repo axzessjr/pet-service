@@ -5,5 +5,6 @@ import { PetProfileController } from './pet-profile.controller';
 @Module({
     controllers: [PetProfileController],
     providers: [PetProfileService],
+    exports: [PetProfileService],
 })
 export class PetProfileModule {}

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package recommendation;
+
+service RecommendationEngine {
+  rpc Recommend(RecommendationRequest) returns (RecommendationResponse);
+}
+
+message Pet {
+  string species = 1;
+  repeated string needs = 2;
+  double max_price = 3;
+}
+
+message CatalogItem {
+  int32 id = 1;
+  repeated string species = 2;
+  repeated string tags = 3;
+  double price = 4;
+}
+
+message RecommendationRequest {
+  Pet pet = 1;
+  repeated CatalogItem services = 2;
+  int32 limit = 3;
+}
+
+message Match {
+  int32 service_id = 1;
+  double score = 2;
+  repeated string matched_needs = 3;
+}
+
+message RecommendationResponse {
+  repeated Match matches = 1;
+}
