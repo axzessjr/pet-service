@@ -16,11 +16,13 @@ describe('AppController (e2e)', () => {
         await app.init();
     });
 
-    it('/ (GET)', () => {
+    it('/catalog (GET)', () => {
         return request(app.getHttpServer())
-            .get('/')
+            .get('/catalog')
             .expect(200)
-            .expect('Hello World!');
+            .expect((response) => {
+                expect(response.body).toHaveLength(18);
+            });
     });
 
     afterEach(async () => {
