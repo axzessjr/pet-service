@@ -7,8 +7,10 @@ export class AuthService {
 
     constructor(private readonly usersService: UsersService) { }
 
-    login(loginDto: LoginDTO): any {
-        const user = this.usersService.findByUsername(loginDto.username);
+    // Add async here
+    async login(loginDto: LoginDTO) {
+        // Add await here
+        const user = await this.usersService.findByUsername(loginDto.username);
 
         if (user && user.password === loginDto.password) {
             return {

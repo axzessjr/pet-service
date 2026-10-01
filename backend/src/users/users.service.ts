@@ -1,7 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { Pool } from 'pg';
+import { PG_CONNECTION } from 'src/database/database.module';
 
 @Injectable()
 export class UsersService {
+    // Inject the database pool
+    constructor(@Inject(PG_CONNECTION) private readonly pool: Pool) { }
+
+    // Query the users table using async/await
+    async findByUsername(username: string) {
+        const sql = "SELECT * FROM users WHERE email = $1 LIMIT 1";
+
+        const { rows } = await this.pool.query(sql, [username]);
+
+        return rows[0];
+    }
+}
+
+/*
+export class UsersServiceLegacy {
     // Assume that getting user list from database
     private users = [
         {
@@ -28,3 +45,4 @@ export class UsersService {
         return foundedUser;
     }
 }
+*/

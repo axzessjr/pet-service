@@ -1,8 +1,59 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { Pool } from 'pg';
+import { PG_CONNECTION } from 'src/database/database.module';
+
 import { Pet } from './pet-profile.types';
 
 @Injectable()
 export class PetProfileService {
+    constructor(@Inject(PG_CONNECTION) private readonly pool: Pool) { }
+
+    // 1. Fetch pets belonging to a specific user
+    async getProfile(userId: any) {
+        if (!userId) return [];
+
+        const sql = `
+            SELECT 
+                id,
+                user_id AS "userId",
+                name,
+                species,
+                needs,
+                max_price::float AS "maxPrice"
+            FROM pets
+            WHERE user_id = $1
+            ORDER BY id ASC
+        `;
+
+        const { rows } = await this.pool.query(sql, [userId])
+
+        return rows;
+    }
+
+    // 2. Fetch a single pet by its ID (used by the Recommendation engine)
+    async getPetById(id: number): Promise<Pet | undefined> {
+        const sql = `
+            SELECT 
+                id, 
+                user_id AS "userId", 
+                name, 
+                species, 
+                needs, 
+                max_price::float AS "maxPrice" 
+            FROM pets 
+            WHERE id = $1
+            LIMIT 1
+        `;
+        const { rows } = await this.pool.query(sql, [id]);
+        return rows[0];
+    }
+
+}
+
+
+/*
+@Injectable()
+export class PetProfileServiceLegacy {
     private readonly pets: Pet[] = [
         {
             id: 1,
@@ -50,3 +101,4 @@ export class PetProfileService {
         return this.pets.find((pet) => pet.id === id);
     }
 }
+*/

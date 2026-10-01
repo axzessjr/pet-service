@@ -31,7 +31,7 @@ export class RecommendationService implements OnModuleInit {
         @Inject('RECOMMENDATION_ENGINE') private readonly client: ClientGrpc,
         private readonly catalogService: CatalogService,
         private readonly petProfileService: PetProfileService,
-    ) {}
+    ) { }
 
     onModuleInit(): void {
         this.engine = this.client.getService<RecommendationEngine>(
@@ -40,6 +40,64 @@ export class RecommendationService implements OnModuleInit {
     }
 
     async recommendForPet(petId: number): Promise<PetRecommendations> {
+        const pet = await this.petProfileService.getPetById(petId);
+
+        if (!pet) {
+            throw new NotFoundException(`Pet ${petId} was not found`);
+        }
+
+        const catalog = this.catalogService.getCatalogItems();
+        let response: RecommendationResponse;
+        try {
+            response = await firstValueFrom(
+                this.engine
+                    .recommend({
+                        pet: {
+                            species: pet.species,
+                            needs: pet.needs,
+                            maxPrice: pet.maxPrice,
+                        },
+                        services: catalog.map(
+                            ({ id, species, tags, price }) => ({
+                                id,
+                                species,
+                                tags,
+                                price,
+                            }),
+                        ),
+                        limit: 5,
+                    })
+                    .pipe(timeout(3000)),
+            );
+        } catch (error) {
+            this.logger.warn(
+                `Recommendation engine unavailable: ${String(error)}`,
+            );
+            throw new ServiceUnavailableException(
+                'Recommendations are temporarily unavailable',
+            );
+        }
+
+        const byId = new Map(catalog.map((item) => [item.id, item]));
+        return {
+            pet,
+            recommendations: response.matches.flatMap((match) => {
+                const service = byId.get(match.serviceId);
+                return service
+                    ? [
+                        {
+                            service,
+                            score: match.score,
+                            matchedNeeds: match.matchedNeeds,
+                        },
+                    ]
+                    : [];
+            }),
+        };
+    }
+
+    /*
+    async recommendForPetLegacy(petId: number): Promise<PetRecommendations> {
         const pet = this.petProfileService.getPetById(petId);
         if (!pet) {
             throw new NotFoundException(`Pet ${petId} was not found`);
@@ -84,14 +142,15 @@ export class RecommendationService implements OnModuleInit {
                 const service = byId.get(match.serviceId);
                 return service
                     ? [
-                          {
-                              service,
-                              score: match.score,
-                              matchedNeeds: match.matchedNeeds,
-                          },
-                      ]
+                        {
+                            service,
+                            score: match.score,
+                            matchedNeeds: match.matchedNeeds,
+                        },
+                    ]
                     : [];
             }),
         };
     }
+    */
 }

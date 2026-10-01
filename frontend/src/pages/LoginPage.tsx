@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
+import { useLoading } from '../context/LoadingContext';
 
 interface LoginPageProps {
     setLoggedIn: (state: boolean) => void;
@@ -10,10 +11,12 @@ interface LoginPageProps {
 export function LoginPage({ setLoggedIn, setCurrentUser }: LoginPageProps) {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const { setLoading } = useLoading();
 
     const navigate = useNavigate(); // Create the navigate function
 
     const handleLogin = async () => {
+        setLoading(true);
         try {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
@@ -26,7 +29,6 @@ export function LoginPage({ setLoggedIn, setCurrentUser }: LoginPageProps) {
             const data = await response.json();
 
             if (response.ok) {
-                alert('Success: ' + data.message);
                 // Update the App's state! The user is now logged in.
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('userInfo', JSON.stringify(data.user));
@@ -41,6 +43,8 @@ export function LoginPage({ setLoggedIn, setCurrentUser }: LoginPageProps) {
             }
         } catch (error) {
             alert('Something went wrong connecting to the server!');
+        } finally {
+            setLoading(false);
         }
     };
 

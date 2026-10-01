@@ -1,35 +1,42 @@
 import { useState, useEffect } from 'react';
 import type { Pet } from '../types';
 import type { User } from '../App';
+import { useLoading } from '../context/LoadingContext';
 
 interface ProfilePageProps {
     currentUser: User | null;
 }
 
 export function ProfilePage({ currentUser }: ProfilePageProps) {
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLocalLoading] = useState<boolean>(true);
     const [pets, setPets] = useState<Pet[]>([]);
+    const { setLoading: setGlobalLoading } = useLoading();
 
     const fetchPets = async () => {
         if (!currentUser?.id) {
-            setLoading(false);
+            setLocalLoading(false);
             return;
         }
 
-        setLoading(true);
+        setLocalLoading(true);
+        setGlobalLoading(true);
 
-        const response = await fetch(`/api/pet-profile/me?userId=${currentUser.id}`, {
-            method: 'GET'
-        });
-        const data = await response.json();
+        try {
+            const response = await fetch(`/api/pet-profile/me?userId=${currentUser.id}`, {
+                method: 'GET'
+            });
+            const data = await response.json();
 
-        if (response.ok) {
-            setPets(data);
-            setLoading(false);
+            if (response.ok) {
+                setPets(data);
+            }
+        } catch (error) {
+            console.error('Error fetching pets:', error);
+        } finally {
+            setLocalLoading(false);
+            setGlobalLoading(false);
         }
-
-        console.log(data);
-    }
+    };
 
     useEffect(() => {
         fetchPets();
