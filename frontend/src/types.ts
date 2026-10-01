@@ -31,3 +31,18 @@ export type PetRecommendations = {
         matchedNeeds: string[];
     }[];
 };
+
+export type RecommendationMatch = {
+    serviceId: number;
+    score: number;
+    matchedNeeds: string[];
+};
+
+export type SavedRecommendation = {
+    id: string;
+    petId: number;
+    limit: number;
+    matches: RecommendationMatch[];
+    createdAt: string;
+    updatedAt: string;
+};

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Pet, PetRecommendations } from '../types';
 import type { User } from '../App';
+import { SavedRecommendations } from '../components/SavedRecommendations';
 
 function readableTag(tag: string): string {
     return tag.replaceAll('-', ' ');
@@ -14,7 +15,7 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
     const [pets, setPets] = useState<Pet[]>([]);
     const [selectedPetId, setSelectedPetId] = useState<number | null>(null);
     const [results, setResults] = useState<PetRecommendations | null>(null);
-    const [loadingPets, setLoadingPets] = useState(true);
+    const [loadingPets, setLoadingPets] = useState(Boolean(currentUser?.id));
     const [loadingResults, setLoadingResults] = useState(false);
     const [profileError, setProfileError] = useState('');
     const [resultError, setResultError] = useState('');
@@ -22,7 +23,6 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
 
     useEffect(() => {
         if (!currentUser?.id) {
-            setLoadingPets(false);
             return;
         }
 
@@ -216,6 +216,7 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
                     )
                 ) : null}
             </section>
+            {selectedPet && <SavedRecommendations key={selectedPet.id} pet={selectedPet} />}
         </main>
     );
 }
