@@ -24,5 +24,24 @@ export interface RecommendationRequest {
 }
 
 export interface RecommendationResponse {
-    matches: { serviceId: number; score: number; matchedNeeds: string[] }[];
+    matches: RecommendationMatch[];
+}
+
+export interface RecommendationMatch {
+    serviceId: number;
+    score: number;
+    matchedNeeds: string[];
+}
+
+export interface SavedRecommendation {
+    id: string;
+    petId: number;
+    limit: number;
+    matches: RecommendationMatch[];
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface ListRecommendationsResponse {
+    recommendations: SavedRecommendation[];
 }

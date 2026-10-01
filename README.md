@@ -1,14 +1,17 @@
 # Pawpal
 
-Pawpal is a pet service catalog with recommendations for a selected pet. The React frontend calls a NestJS HTTP API. NestJS sends the pet and current catalog over gRPC to a Python service, which ranks compatible services with content-based KNN.
+Pawpal is a pet service catalog with recommendations for a selected pet. The React frontend calls a NestJS HTTP API. NestJS sends the pet and current catalog over gRPC to a Python service, which ranks compatible services by tag similarity. The Python service can also save, read, recalculate, and delete recommendation sets.
 
 ## Run with Docker
 
 From the repository root:
 
 ```bash
+export DATABASE_URL='your PostgreSQL connection string'
 docker compose up --build
 ```
+
+In PowerShell, set `$env:DATABASE_URL` instead of using `export`. The backend needs this connection to read the existing `pets` table. The recommender saves sets in SQLite on the `recommendation_data` Docker volume.
 
 Open <http://localhost:5173> and choose **For my pet**. Compose starts the Python recommender, NestJS API, and nginx-hosted frontend. The API is also available at <http://localhost:3000>. Stop the stack with `docker compose down`.
 
@@ -25,10 +28,13 @@ cd recommender
 ..\.venv\Scripts\python.exe server.py
 ```
 
+The recommender saves local sets to `recommender/recommendations.sqlite3` by default. Set `RECOMMENDATION_DB_PATH` to use another location.
+
 ```powershell
 # Terminal 2: API
 cd backend
 npm ci
+$env:DATABASE_URL = 'your PostgreSQL connection string'
 npm run start:dev
 ```
 
@@ -43,16 +49,49 @@ The Vite development server proxies `/api` to `http://localhost:3000`. Override 
 
 ## Recommendations
 
-Open **For my pet** at <http://localhost:5173/recommendations> and select a pet. The ranking steps and an example are in the [recommender note](recommender/README.md).
+Open **For my pet** at <http://localhost:5173/recommendations> and select a pet. NestJS loads that pet and the catalog, sends both to the Python service over gRPC, then adds catalog details to the ranked matches it receives.
 
-## API and mock data
+**What it uses to find services:**
+
+1. **Species filters:** A service must list the pet's species. A cat-only service will not appear for a dog.
+2. **Price filters:** A service must cost no more than the pet's `maxPrice`. A `maxPrice` of `0` means there is no price ceiling.
+3. **Needs and tags rank:** The pet's `needs` are compared with each service's `tags`. More closely matching tags produce a higher similarity score. A service with no matching need is left out.
+4. **Price breaks score ties:** If two services have the same score, the cheaper one comes first. If the pet has no needs, compatible services are ordered by lowest price instead.
+
+For example, a pet need of `exercise` matches a service tag of `exercise`; it does not match `gentle-exercise`. Names, descriptions, providers, and categories are not searched by the recommender.
+
+### Worked example
+
+Suppose a dog needs `exercise` and `social` care and has a $45 budget. After filtering by species and price, consider these two catalog services. Using the tag order `[exercise, social, outdoors]`, each `1` means the tag is present and each `0` means it is absent:
+
+| Pet or service | Needs or tags | Vector | Score |
+| --- | --- | --- | ---: |
+| Pet | `exercise`, `social` | `[1, 1, 0]` | Search input |
+| Neighborhood Dog Walk (`101`, $15) | `exercise`, `social` | `[1, 1, 0]` | `1.0` |
+| Active Dog Adventure (`104`, $38) | `exercise`, `social`, `outdoors` | `[1, 1, 1]` | `0.8165` |
+
+The code gives the two service vectors to scikit-learn's `NearestNeighbors`, then searches with the pet vector. With cosine distance, Dog Walk is an exact match (`distance = 0`, so `score = 1 - 0 = 1.0`). Adventure has one extra tag (`distance ≈ 0.1835`, so `score ≈ 0.8165`). Dog Walk ranks first. The code asks for every eligible service, then keeps the highest-scoring results; it does not learn from past bookings or ratings. See the [ranking details](recommender/README.md) for the full algorithm.
+
+The existing `GET /recommendation/pets/:petId` calculates live recommendations without saving them. Saved sets use these endpoints:
+
+| Method | Path | Action |
+| --- | --- | --- |
+| `POST` | `/recommendations` | Create a set from `{ "petId": 1, "limit": 5 }`; `limit` defaults to 5. |
+| `GET` | `/recommendations/:id` | Read one saved set. |
+| `GET` | `/recommendations?petId=1` | List sets for a pet. |
+| `PUT` | `/recommendations/:id` | Recalculate a set from the current pet and catalog with `{ "limit": 5 }`. |
+| `DELETE` | `/recommendations/:id` | Delete a set; returns HTTP 204. |
+
+The saved response contains `id`, `petId`, `limit`, `matches` (service IDs, scores, matched needs), `createdAt`, and `updatedAt`. A saved set is a snapshot. Reading it does not recalculate it; `PUT` does. Missing sets return HTTP 404. The API currently does not enforce user ownership, so these routes should be protected before exposing them to untrusted clients.
+
+## API and data
 
 - `GET /catalog` lists 18 mock services with species, category, care tags, and price.
-- `GET /pet-profile/me` lists four mock pets. Each pet has care needs and a maximum service price.
+- `GET /pet-profile/me` reads pets from the configured PostgreSQL database. Each pet has care needs and a maximum service price.
 - `GET /recommendation/pets/:petId` returns up to five services with matching need tags.
 - A pet without care needs receives the cheapest compatible services as a fallback.
 
-The catalog and pets are in memory. No bookings, reviews, authentication, or persistent database are implemented yet. NestJS sends current catalog candidates in each gRPC request, so the Python service does not need a separate copy of catalog data.
+The catalog is in memory; pets are read from PostgreSQL. NestJS sends current catalog candidates in each recommendation request, so the Python service does not need a separate copy of catalog data. Saved recommendation sets are persisted in SQLite.
 
 ## Verify
 
@@ -73,3 +112,4 @@ docker compose config
 ```
 
 Python gRPC bindings are generated during the Docker build or by the local command above.
+With the recommender running locally, run `node test/grpc-contract-smoke.js` from `backend` to check the NestJS-to-Python CRUD contract.
