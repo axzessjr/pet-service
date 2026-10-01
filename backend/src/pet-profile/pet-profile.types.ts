@@ -6,3 +6,11 @@ export interface Pet {
     maxPrice: number;
     userId: number;
 }
+
+export interface PetInput {
+    userId: number;
+    name: string;
+    species: string;
+    needs: string[];
+    maxPrice: number;
+}
