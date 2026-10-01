@@ -4,6 +4,11 @@ package recommendation;
 
 service RecommendationEngine {
   rpc Recommend(RecommendationRequest) returns (RecommendationResponse);
+  rpc CreateRecommendation(CreateRecommendationRequest) returns (SavedRecommendation);
+  rpc GetRecommendation(GetRecommendationRequest) returns (SavedRecommendation);
+  rpc ListRecommendations(ListRecommendationsRequest) returns (ListRecommendationsResponse);
+  rpc UpdateRecommendation(UpdateRecommendationRequest) returns (SavedRecommendation);
+  rpc DeleteRecommendation(DeleteRecommendationRequest) returns (DeleteRecommendationResponse);
 }
 
 message Pet {
@@ -33,4 +38,44 @@ message Match {
 
 message RecommendationResponse {
   repeated Match matches = 1;
+}
+
+message SavedRecommendation {
+  string id = 1;
+  int32 pet_id = 2;
+  int32 limit = 3;
+  repeated Match matches = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
+
+message CreateRecommendationRequest {
+  int32 pet_id = 1;
+  RecommendationRequest input = 2;
+}
+
+message GetRecommendationRequest {
+  string id = 1;
+}
+
+message ListRecommendationsRequest {
+  int32 pet_id = 1;
+}
+
+message ListRecommendationsResponse {
+  repeated SavedRecommendation recommendations = 1;
+}
+
+message UpdateRecommendationRequest {
+  string id = 1;
+  int32 pet_id = 2;
+  RecommendationRequest input = 3;
+}
+
+message DeleteRecommendationRequest {
+  string id = 1;
+}
+
+message DeleteRecommendationResponse {
+  bool deleted = 1;
 }

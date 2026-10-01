@@ -5,6 +5,7 @@ import { CatalogModule } from '../catalog/catalog.module';
 import { PetProfileModule } from '../pet-profile/pet-profile.module';
 import { RecommendationService } from './recommendation.service';
 import { RecommendationController } from './recommendation.controller';
+import { SavedRecommendationController } from './saved-recommendation.controller';
 
 @Module({
     imports: [
@@ -27,7 +28,7 @@ import { RecommendationController } from './recommendation.controller';
             },
         ]),
     ],
-    controllers: [RecommendationController],
+    controllers: [RecommendationController, SavedRecommendationController],
     providers: [RecommendationService],
 })
 export class RecommendationModule {}
