@@ -4,14 +4,21 @@ Pawpal is a pet service catalog with recommendations for a selected pet. The Rea
 
 ## Run with Docker
 
-From the repository root:
+From the repository root, copy the example configuration and set `DATABASE_URL` in `backend/.env` to your PostgreSQL/Supabase connection string:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+Then start the stack:
 
 ```bash
-export DATABASE_URL='your PostgreSQL connection string'
 docker compose up --build
 ```
 
-In PowerShell, set `$env:DATABASE_URL` instead of using `export`. The backend needs this connection to read the existing `pets` table. The recommender saves sets in SQLite on the `recommendation_data` Docker volume.
+Compose passes `backend/.env` into the backend container; the same file is read when running NestJS locally from `backend`. It is ignored by Git. The backend needs this database for login and pet data. The recommender saves sets separately in SQLite on the `recommendation_data` Docker volume.
+
+If PostgreSQL runs on your computer, use `host.docker.internal` as the hostname in `DATABASE_URL` for Docker Desktop and set `DATABASE_SSL=false` if that server does not support TLS. `localhost` inside the backend container refers to the container itself. The backend now stops with a clear error if the database URL is missing or the database cannot be reached.
 
 Open <http://localhost:5173> and choose **For my pet**. Compose starts the Python recommender, NestJS API, and nginx-hosted frontend. The API is also available at <http://localhost:3000>. Stop the stack with `docker compose down`.
 
@@ -34,7 +41,6 @@ The recommender saves local sets to `recommender/recommendations.sqlite3` by def
 # Terminal 2: API
 cd backend
 npm ci
-$env:DATABASE_URL = 'your PostgreSQL connection string'
 npm run start:dev
 ```
 

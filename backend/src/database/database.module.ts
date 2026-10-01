@@ -5,12 +5,21 @@ export const PG_CONNECTION = 'PG_CONNECTION';
 
 const dbProvider = {
     provide: PG_CONNECTION,
-    useValue: new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: {
-            rejectUnauthorized: false,
-        },
-    }),
+    useFactory: () => {
+        const connectionString = process.env.DATABASE_URL?.trim();
+        if (!connectionString) {
+            throw new Error(
+                'DATABASE_URL is required in backend/.env for login and pet data',
+            );
+        }
+        return new Pool({
+            connectionString,
+            ssl:
+                process.env.DATABASE_SSL === 'false'
+                    ? false
+                    : { rejectUnauthorized: false },
+        });
+    },
 };
 
 @Global()
@@ -25,11 +34,14 @@ export class DatabaseModule implements OnModuleInit {
 
     async onModuleInit() {
         try {
-            const res = await this.pool.query('SELECT NOW()');
-            this.logger.log('✅ Connected to Supabase PostgreSQL successfully at ' + res.rows[0].now);
+            await this.pool.query('SELECT 1');
+            this.logger.log('Connected to PostgreSQL');
         } catch (error) {
-            this.logger.error('❌ Failed to connect to Supabase PostgreSQL:', error);
+            this.logger.error(
+                'PostgreSQL connection failed; check DATABASE_URL in backend/.env',
+                error,
+            );
+            throw error;
         }
     }
 }
-
