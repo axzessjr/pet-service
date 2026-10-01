@@ -61,29 +61,28 @@ export function CatalogPage() {
             {loading ? (
                 <p className="text-gray-500 italic">Loading services...</p>
             ) : (
-                <ul className="list-none p-0 space-y-3">
-                    {services.map((service) => (
-                        <li
-                            key={service.id}
-                            className="bg-gray-100 p-4 rounded-lg flex justify-between items-center hover:bg-gray-200 transition-colors shadow-sm cursor-pointer"
-                        >
-                            <div>
-                                <strong className="text-lg text-gray-800">
-                                    {service.title}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    {
+                        services.map((service) => (
+                            <div key={service.id} className="py-2 px-4 border rounded-xl flex flex-col justify-between">
+                                <div>
+                                    <strong className="text-lg text-gray-800">
+                                        {service.title}
+                                    </strong>
+                                    <div className="text-sm text-gray-600 mt-1">
+                                        By {service.provider}
+                                    </div>
+                                    <div className="text-sm text-gray-600 mt-1">
+                                        {service.category} · {service.description}
+                                    </div>
+                                </div>
+                                <strong className="text-green-600 text-xl font-bold mt-4">
+                                    ${service.price}
                                 </strong>
-                                <div className="text-sm text-gray-600 mt-1">
-                                    By {service.provider}
-                                </div>
-                                <div className="text-sm text-gray-600 mt-1">
-                                    {service.category} · {service.description}
-                                </div>
                             </div>
-                            <strong className="text-green-600 text-xl font-bold">
-                                ${service.price}
-                            </strong>
-                        </li>
-                    ))}
-                </ul>
+                        ))
+                    }
+                </div>
             )}
         </div>
     );
