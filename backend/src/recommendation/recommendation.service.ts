@@ -79,16 +79,17 @@ export class RecommendationService implements OnModuleInit {
         }
 
         const byId = new Map(catalog.map((item) => [item.id, item]));
+        // proto3 omits empty repeated fields, so `matches` is undefined when nothing matched.
         return {
             pet,
-            recommendations: response.matches.flatMap((match) => {
+            recommendations: (response.matches ?? []).flatMap((match) => {
                 const service = byId.get(match.serviceId);
                 return service
                     ? [
                         {
                             service,
                             score: match.score,
-                            matchedNeeds: match.matchedNeeds,
+                            matchedNeeds: match.matchedNeeds ?? [],
                         },
                     ]
                     : [];
