@@ -51,6 +51,8 @@ The Vite development server proxies `/api` to `http://localhost:3000`. Override 
 
 Open **For my pet** at <http://localhost:5173/recommendations> and select a pet. NestJS loads that pet and the catalog, sends both to the Python service over gRPC, then adds catalog details to the ranked matches it receives.
 
+On that page, use **Generate and save set** to create a snapshot for the selected pet. The **Saved recommendation sets** section lists that pet's sets. Select a set to see its ranked services, change the service limit and choose **Recalculate set** to update it using current pet and catalog data, or choose **Delete set** and confirm to remove it. Switching pets shows that pet's saved sets.
+
 **What it uses to find services:**
 
 1. **Species filters:** A service must list the pet's species. A cat-only service will not appear for a dog.
