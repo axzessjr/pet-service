@@ -4,10 +4,5 @@ export interface Pet {
     species: string;
     needs: string[];
     maxPrice: number;
-}
-
-export interface UserProfile {
-    name: string;
-    email: string;
-    pets: Pet[];
+    userId: number;
 }

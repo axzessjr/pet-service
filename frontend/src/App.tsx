@@ -1,63 +1,92 @@
-import { Routes, Route, NavLink } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router';
 import { CatalogPage } from './pages/CatalogPage';
+import { LoginPage } from './pages/LoginPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
+import { Header } from './components/Header';
+import { Footer } from './components/Footer';
+import { useState } from 'react';
 import './App.css';
 
+export interface ProtectedRouteProps {
+    isLoggedIn: boolean;
+    children: React.ReactNode;
+}
+
+export interface User {
+    id: any;
+    firstname: string;
+    lastname: string;
+    email: string;
+}
+
+function ProtectedRoute({ isLoggedIn, children }: ProtectedRouteProps) {
+    if (!isLoggedIn) {
+        // Not logged in? Kick them back to the login page!
+        return <Navigate to="/" replace />
+    }
+    // Logged in? Render the page
+    return <>{children}</>;
+}
+
 function App() {
+    // const [isLoggedIn, setLoggedIn] = useState<boolean>(false);
+    const [isLoggedIn, setLoggedIn] = useState<boolean>(() => {
+        return localStorage.getItem('isLoggedIn') === 'true';
+    });
+    const [currentUser, setCurrentUser] = useState<User | null>(() => {
+        const userInfo = localStorage.getItem('userInfo');
+        if (userInfo) {
+            return JSON.parse(userInfo);
+        }
+        return null;
+    });
+
+    const handleLogout = () => {
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userInfo');
+        setLoggedIn(false);
+    }
+
     return (
         <div className="mx-auto max-w-5xl px-4 py-5 font-sans sm:px-6">
-            <nav
-                aria-label="Main navigation"
-                className="mb-8 flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-200 pb-5"
-            >
-                <h1 className="mr-auto text-3xl font-bold text-gray-800">
-                    <i
-                        aria-hidden="true"
-                        className="fa-solid fa-paw mr-2 text-teal-700"
-                    ></i>
-                    Pawpal
-                </h1>
-                <NavLink
-                    to="/"
-                    end
-                    className={({ isActive }) =>
-                        `rounded-md px-2 py-2 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700 ${isActive ? 'text-teal-800 underline underline-offset-4' : 'text-gray-700 hover:text-teal-800'}`
-                    }
-                >
-                    Catalog
-                </NavLink>
-                <NavLink
-                    to="/recommendations"
-                    className={({ isActive }) =>
-                        `rounded-md px-2 py-2 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700 ${isActive ? 'text-teal-800 underline underline-offset-4' : 'text-gray-700 hover:text-teal-800'}`
-                    }
-                >
-                    For my pet
-                </NavLink>
-                <NavLink
-                    to="/profile"
-                    className={({ isActive }) =>
-                        `rounded-md px-2 py-2 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700 ${isActive ? 'text-teal-800 underline underline-offset-4' : 'text-gray-700 hover:text-teal-800'}`
-                    }
-                >
-                    My Profile
-                </NavLink>
-            </nav>
+            {/* Pass the state to the Header! */}
+            {isLoggedIn && <> <Header isLoggedIn={isLoggedIn} currentUser={currentUser} onLogout={handleLogout} /> </>}
 
-            {/* 2. This is where the pages change based on the URL! */}
+            {/* This is where the pages change based on the URL! */}
             <Routes>
-                {/* When the URL is "/" show the CatalogPage */}
-                <Route path="/" element={<CatalogPage />} />
-                <Route
-                    path="/recommendations"
-                    element={<RecommendationsPage />}
-                />
+                {/* Public route */}
+                {!isLoggedIn && (
+                    <Route path="/" element={<LoginPage setLoggedIn={setLoggedIn} setCurrentUser={setCurrentUser} />} />
+                )}
 
-                {/* When the URL is "/profile" show the ProfilePage */}
-                <Route path="/profile" element={<ProfilePage />} />
+                {/* Protected routes */}
+                {isLoggedIn && (
+                    <>
+                        <Route path="/catalog" element={
+                            <ProtectedRoute isLoggedIn={isLoggedIn}>
+                                <CatalogPage />
+                            </ProtectedRoute>}
+                        />
+                        <Route path="/recommendations" element={
+                            <ProtectedRoute isLoggedIn={isLoggedIn}>
+                                <RecommendationsPage currentUser={currentUser} />
+                            </ProtectedRoute>}
+                        />
+                        <Route path="/profile" element={
+                            <ProtectedRoute isLoggedIn={isLoggedIn}>
+                                <ProfilePage currentUser={currentUser} />
+                            </ProtectedRoute>}
+                        />
+                    </>
+                )}
+
+                {/* Fallback: redirect unknown paths */}
+                <Route path="*" element={<Navigate to={isLoggedIn ? "/catalog" : "/"} replace />} />
             </Routes>
-        </div>
+
+            {isLoggedIn && <> <Footer /> </>}
+        </div >
     );
 }
 

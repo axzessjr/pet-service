@@ -1,49 +1,39 @@
 import { useState, useEffect } from 'react';
-import type { UserProfile } from '../types';
+import type { Pet } from '../types';
+import type { User } from '../App';
 
-async function loadProfile(signal?: AbortSignal): Promise<UserProfile> {
-    const response = await fetch('/api/pet-profile/me', { signal });
-    if (!response.ok) throw new Error('Could not load profile.');
-    return response.json() as Promise<UserProfile>;
+interface ProfilePageProps {
+    currentUser: User | null;
 }
 
-export function ProfilePage() {
-    const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [loading, setLoading] = useState(true);
+export function ProfilePage({ currentUser }: ProfilePageProps) {
+    const [loading, setLoading] = useState<boolean>(true);
+    const [pets, setPets] = useState<Pet[]>([]);
 
-    const fetchProfile = () => {
+    const fetchPets = async () => {
+        if (!currentUser?.id) {
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
-        loadProfile()
-            .then(setProfile)
-            .catch((error) => {
-                console.error('Error fetching profile:', error);
-            })
-            .finally(() => setLoading(false));
-    };
+
+        const response = await fetch(`/api/pet-profile/me?userId=${currentUser.id}`, {
+            method: 'GET'
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            setPets(data);
+            setLoading(false);
+        }
+
+        console.log(data);
+    }
 
     useEffect(() => {
-        const controller = new AbortController();
-        loadProfile(controller.signal)
-            .then((data) => {
-                if (!controller.signal.aborted) setProfile(data);
-            })
-            .catch((error) => {
-                if (!controller.signal.aborted)
-                    console.error('Error fetching profile:', error);
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) setLoading(false);
-            });
-        return () => controller.abort();
-    }, []);
-
-    if (loading && !profile) {
-        return <p className="text-gray-500 italic">Loading profile...</p>;
-    }
-
-    if (!profile) {
-        return <p className="text-red-500">Error loading profile.</p>;
-    }
+        fetchPets();
+    }, [currentUser?.id]);
 
     return (
         <div>
@@ -51,33 +41,30 @@ export function ProfilePage() {
                 <h2 className="text-2xl font-bold text-gray-800 m-0">
                     👤 My Profile
                 </h2>
-
                 <button
-                    onClick={fetchProfile}
+                    onClick={fetchPets}
                     className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2 cursor-pointer border-0"
                 >
-                    <i
-                        className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`}
-                    ></i>
+                    <i className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`}></i>
                     Refresh
                 </button>
             </div>
 
             <div className="bg-gray-50 p-5 rounded-xl border border-gray-200 mb-8 shadow-sm">
                 <p className="text-gray-700 mb-2">
-                    <strong className="text-gray-900">Name:</strong>{' '}
-                    {profile.name}
+                    <strong className="text-gray-900 mr-2">Name:</strong>
+                    {currentUser?.firstname} {currentUser?.lastname}
                 </p>
                 <p className="text-gray-700">
-                    <strong className="text-gray-900">Email:</strong>{' '}
-                    {profile.email}
+                    <strong className="text-gray-900 mr-2">Email:</strong>
+                    {currentUser?.email}
                 </p>
             </div>
 
             <h3 className="text-xl font-bold mb-3 text-gray-800">My Pets</h3>
 
             <ul className="list-none p-0 space-y-3">
-                {profile.pets.map((pet) => (
+                {pets.map((pet) => (
                     <li
                         key={pet.id}
                         className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-center shadow-sm"
@@ -96,5 +83,5 @@ export function ProfilePage() {
                 ))}
             </ul>
         </div>
-    );
+    )
 }

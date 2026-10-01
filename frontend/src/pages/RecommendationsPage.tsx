@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
-import type { Pet, PetRecommendations, UserProfile } from '../types';
+import type { Pet, PetRecommendations } from '../types';
+import type { User } from '../App';
 
 function readableTag(tag: string): string {
     return tag.replaceAll('-', ' ');
 }
 
-export function RecommendationsPage() {
+interface RecommendationsPageProps {
+    currentUser: User | null;
+}
+
+export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
     const [pets, setPets] = useState<Pet[]>([]);
     const [selectedPetId, setSelectedPetId] = useState<number | null>(null);
     const [results, setResults] = useState<PetRecommendations | null>(null);
@@ -16,16 +21,21 @@ export function RecommendationsPage() {
     const [retryCount, setRetryCount] = useState(0);
 
     useEffect(() => {
+        if (!currentUser?.id) {
+            setLoadingPets(false);
+            return;
+        }
+
         const controller = new AbortController();
-        fetch('/api/pet-profile/me', { signal: controller.signal })
+        fetch(`/api/pet-profile/me?userId=${currentUser.id}`, { signal: controller.signal })
             .then((response) => {
                 if (!response.ok) throw new Error('Could not load pets.');
-                return response.json() as Promise<UserProfile>;
+                return response.json() as Promise<Pet[]>;
             })
-            .then((profile) => {
-                setPets(profile.pets);
-                setLoadingResults(profile.pets.length > 0);
-                setSelectedPetId(profile.pets[0]?.id ?? null);
+            .then((data) => {
+                setPets(data);
+                setLoadingResults(data.length > 0);
+                setSelectedPetId(data[0]?.id ?? null);
             })
             .catch((error: unknown) => {
                 if (!controller.signal.aborted) {
@@ -40,7 +50,7 @@ export function RecommendationsPage() {
                 if (!controller.signal.aborted) setLoadingPets(false);
             });
         return () => controller.abort();
-    }, []);
+    }, [currentUser?.id]);
 
     useEffect(() => {
         if (selectedPetId === null) return;
