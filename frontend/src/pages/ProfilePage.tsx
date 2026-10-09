@@ -227,13 +227,12 @@ export function ProfilePage({ currentUser }: ProfilePageProps) {
                                 <label
                                     key={tag}
                                     title={isLegacy ? 'No services match this need — uncheck to remove it' : undefined}
-                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm cursor-pointer select-none has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-blue-600 ${
-                                        isLegacy
-                                            ? 'border-amber-300 bg-amber-50 text-amber-800 line-through'
-                                            : checked
-                                                ? 'border-blue-600 bg-blue-600 text-white'
-                                                : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
-                                    }`}
+                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm cursor-pointer select-none has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-blue-600 ${isLegacy
+                                        ? 'border-amber-300 bg-amber-50 text-amber-800 line-through'
+                                        : checked
+                                            ? 'border-blue-600 bg-blue-600 text-white'
+                                            : 'border-gray-300 bg-white text-gray-700 hover:border-blue-400'
+                                        }`}
                                 >
                                     <input
                                         type="checkbox"
@@ -293,7 +292,7 @@ export function ProfilePage({ currentUser }: ProfilePageProps) {
         <div>
             <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-gray-800 m-0">
-                    👤 My Profile
+                    <i className="fa-solid fa-user text-blue-500 me-1"></i> My Profile
                 </h2>
                 <button
                     onClick={fetchPets}
