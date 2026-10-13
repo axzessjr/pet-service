@@ -111,6 +111,23 @@ class RecommendationGrpcTests(unittest.TestCase):
             self.stub.GetRecommendation(self.pb.GetRecommendationRequest(id=created.id))
         self.assertEqual(missing.exception.code(), grpc.StatusCode.NOT_FOUND)
 
+    def test_live_recommendation_uses_stored_ratings(self):
+        self.store_module.RecommendationStore(self.db_path).save_rating(102, 4.5, 2, 1)
+        response = self.stub.Recommend(
+            self.pb.RecommendationRequest(
+                pet=self.pb.Pet(species="cat", needs=["play"], max_price=0),
+                services=[
+                    self.pb.CatalogItem(id=101, species=["cat"], tags=["play"], price=10),
+                    self.pb.CatalogItem(id=102, species=["cat"], tags=["play"], price=20),
+                ],
+                limit=5,
+            )
+        )
+        self.assertEqual([match.service_id for match in response.matches], [102, 101])
+        self.assertAlmostEqual(response.matches[0].average_rating, 4.5)
+        self.assertEqual(response.matches[0].review_count, 2)
+        self.assertEqual(response.matches[1].review_count, 0)
+
     def test_invalid_create_is_rejected(self):
         with self.assertRaises(grpc.RpcError) as invalid:
             self.stub.CreateRecommendation(

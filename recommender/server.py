@@ -8,6 +8,7 @@ import grpc
 import recommendation_pb2
 import recommendation_pb2_grpc
 from engine import Pet, Service, recommend
+from events import start_consumer
 from store import RecommendationStore
 
 
@@ -15,8 +16,9 @@ class RecommendationEngine(recommendation_pb2_grpc.RecommendationEngineServicer)
     def __init__(self, store: RecommendationStore):
         self.store = store
 
-    @staticmethod
-    def _rank(request):
+    def _rank(self, request):
+        """Rank the request's services and return match dicts for protobuf."""
+        ratings = self.store.ratings()
         pet = Pet(
             species=request.pet.species,
             needs=tuple(request.pet.needs),
@@ -31,15 +33,19 @@ class RecommendationEngine(recommendation_pb2_grpc.RecommendationEngineServicer)
             )
             for item in request.services
         ]
-        return recommend(pet, services, request.limit)
-
-    @staticmethod
-    def _match_data(matches):
+        matches = recommend(
+            pet,
+            services,
+            request.limit,
+            {service_id: average for service_id, (average, _) in ratings.items()},
+        )
         return [
             {
                 "service_id": match.service_id,
                 "score": match.score,
                 "matched_needs": list(match.matched_needs),
+                "average_rating": ratings.get(match.service_id, (0.0, 0))[0],
+                "review_count": ratings.get(match.service_id, (0.0, 0))[1],
             }
             for match in matches
         ]
@@ -55,16 +61,13 @@ class RecommendationEngine(recommendation_pb2_grpc.RecommendationEngineServicer)
             context.abort(grpc.StatusCode.INVALID_ARGUMENT, "pet species is required")
 
     def Recommend(self, request, context):
-        matches = self._rank(request)
         return recommendation_pb2.RecommendationResponse(
-            matches=[
-                recommendation_pb2.Match(**match) for match in self._match_data(matches)
-            ]
+            matches=[recommendation_pb2.Match(**match) for match in self._rank(request)]
         )
 
     def CreateRecommendation(self, request, context):
         self._validate_write(request.pet_id, request.input, context)
-        matches = self._match_data(self._rank(request.input))
+        matches = self._rank(request.input)
         return recommendation_pb2.SavedRecommendation(
             **self.store.create(request.pet_id, request.input.limit, matches)
         )
@@ -90,7 +93,7 @@ class RecommendationEngine(recommendation_pb2_grpc.RecommendationEngineServicer)
         existing = self.store.get(request.id)
         if existing is None or existing["pet_id"] != request.pet_id:
             context.abort(grpc.StatusCode.NOT_FOUND, "Recommendation not found")
-        matches = self._match_data(self._rank(request.input))
+        matches = self._rank(request.input)
         record = self.store.update(
             request.id, request.pet_id, request.input.limit, matches
         )
@@ -115,6 +118,7 @@ def serve():
     recommendation_pb2_grpc.add_RecommendationEngineServicer_to_server(
         RecommendationEngine(store), server
     )
+    start_consumer(store)
     address = os.getenv("GRPC_BIND", "0.0.0.0:50051")
     if server.add_insecure_port(address) == 0:
         raise RuntimeError(f"Could not bind gRPC server to {address}")

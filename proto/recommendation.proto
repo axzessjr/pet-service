@@ -34,6 +34,9 @@ message Match {
   int32 service_id = 1;
   double score = 2;
   repeated string matched_needs = 3;
+  // From review events; both are 0 when the service has no reviews.
+  double average_rating = 4;
+  int32 review_count = 5;
 }
 
 message RecommendationResponse {
