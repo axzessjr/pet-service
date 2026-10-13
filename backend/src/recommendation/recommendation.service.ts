@@ -132,6 +132,8 @@ export class RecommendationService implements OnModuleInit {
             matches: (record.matches ?? []).map((match) => ({
                 ...match,
                 matchedNeeds: match.matchedNeeds ?? [],
+                averageRating: match.averageRating ?? 0,
+                reviewCount: match.reviewCount ?? 0,
             })),
         };
     }
@@ -140,7 +142,8 @@ export class RecommendationService implements OnModuleInit {
         const { pet, catalog, input } = await this.inputForPet(petId, 5);
         const response = await this.call(this.engine.recommend(input));
         const byId = new Map(catalog.map((item) => [item.id, item]));
-        // proto3 omits empty repeated fields, so `matches` is undefined when nothing matched.
+        // proto3 omits empty repeated fields and zero values, so `matches` is
+        // undefined when nothing matched and ratings are missing when unreviewed.
         return {
             pet,
             recommendations: (response.matches ?? []).flatMap((match) => {
@@ -151,6 +154,8 @@ export class RecommendationService implements OnModuleInit {
                               service,
                               score: match.score,
                               matchedNeeds: match.matchedNeeds ?? [],
+                              averageRating: match.averageRating ?? 0,
+                              reviewCount: match.reviewCount ?? 0,
                           },
                       ]
                     : [];
