@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router';
+import { BookingsPage } from './pages/BookingsPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -65,12 +66,17 @@ function App() {
                     <>
                         <Route path="/catalog" element={
                             <ProtectedRoute isLoggedIn={isLoggedIn}>
-                                <CatalogPage />
+                                <CatalogPage currentUser={currentUser} />
                             </ProtectedRoute>}
                         />
                         <Route path="/recommendations" element={
                             <ProtectedRoute isLoggedIn={isLoggedIn}>
                                 <RecommendationsPage currentUser={currentUser} />
+                            </ProtectedRoute>}
+                        />
+                        <Route path="/bookings" element={
+                            <ProtectedRoute isLoggedIn={isLoggedIn}>
+                                <BookingsPage currentUser={currentUser} />
                             </ProtectedRoute>}
                         />
                         <Route path="/profile" element={

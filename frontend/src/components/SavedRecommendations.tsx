@@ -4,24 +4,18 @@ import type {
     Pet,
     SavedRecommendation,
 } from '../types';
-
-const controlClass =
-    'min-h-11 rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700';
-const primaryButtonClass =
-    'min-h-11 rounded-lg bg-teal-700 px-4 py-2 font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700';
-const secondaryButtonClass =
-    'min-h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 font-semibold text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700';
+import {
+    controlClass,
+    formatDate,
+    primaryButtonClass,
+    secondaryButtonClass,
+} from './ui';
 
 function parseLimit(value: string): number | null {
     const limit = Number(value);
     return Number.isSafeInteger(limit) && limit >= 1 && limit <= 100
         ? limit
         : null;
-}
-
-function formatDate(value: string): string {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString();
 }
 
 function readableTag(tag: string): string {
