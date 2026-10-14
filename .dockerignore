@@ -5,3 +5,5 @@
 **/__pycache__
 **/*.pyc
 **/coverage
+# Secrets reach containers through env_file, never through the image.
+**/.env
