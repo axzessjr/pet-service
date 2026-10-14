@@ -1,8 +1,13 @@
 """Content-based nearest-neighbor ranking for pet services."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from sklearn.neighbors import NearestNeighbors
+
+# Services without reviews rank as if rated in the middle of the 1-5 scale, so
+# a new service is not placed below a poorly rated one.
+NEUTRAL_RATING = 3.0
 
 
 @dataclass(frozen=True)
@@ -27,9 +32,19 @@ class Match:
     matched_needs: tuple[str, ...]
 
 
-def recommend(pet: Pet, services: list[Service], limit: int) -> list[Match]:
+def recommend(
+    pet: Pet,
+    services: list[Service],
+    limit: int,
+    ratings: Mapping[int, float] | None = None,
+) -> list[Match]:
+    """Rank by tag similarity; break ties by average rating, then price, then ID."""
     if limit <= 0:
         return []
+    ratings = ratings or {}
+
+    def rating_of(service: Service) -> float:
+        return ratings.get(service.id, NEUTRAL_RATING)
 
     species = pet.species.strip().casefold()
     eligible = [
@@ -45,7 +60,9 @@ def recommend(pet: Pet, services: list[Service], limit: int) -> list[Match]:
     if not needs:
         return [
             Match(service.id, 0.0, ())
-            for service in sorted(eligible, key=lambda item: (item.price, item.id))[:limit]
+            for service in sorted(
+                eligible, key=lambda item: (-rating_of(item), item.price, item.id)
+            )[:limit]
         ]
 
     service_tags = [set(tag.casefold() for tag in service.tags) for service in eligible]
@@ -62,10 +79,12 @@ def recommend(pet: Pet, services: list[Service], limit: int) -> list[Match]:
         service = eligible[index]
         matched = tuple(need for need in needs if need in service_tags[index])
         if matched:
-            ranked.append((float(distance), service.price, service.id, matched))
+            ranked.append(
+                (float(distance), -rating_of(service), service.price, service.id, matched)
+            )
 
-    ranked.sort(key=lambda row: (row[0], row[1], row[2]))
+    ranked.sort(key=lambda row: row[:4])
     return [
         Match(service_id, round(max(0.0, 1.0 - distance), 4), matched)
-        for distance, _, service_id, matched in ranked[:limit]
+        for distance, _, _, service_id, matched in ranked[:limit]
     ]

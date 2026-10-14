@@ -32,6 +32,22 @@ class RecommendationStoreTests(unittest.TestCase):
             self.assertIsNone(reopened.get(original["id"]))
             self.assertFalse(reopened.delete(original["id"]))
 
+    def test_rating_keeps_newest_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = RecommendationStore(str(Path(directory) / "recommendations.sqlite3"))
+            self.assertEqual(store.ratings(), {})
+
+            self.assertTrue(store.save_rating(101, 4.0, 1, 1))
+            self.assertTrue(store.save_rating(101, 4.5, 2, 3))
+            # A duplicate or late, older event is ignored.
+            self.assertFalse(store.save_rating(101, 4.0, 1, 1))
+            self.assertFalse(store.save_rating(101, 3.0, 3, 3))
+            self.assertEqual(store.ratings(), {101: (4.5, 2)})
+
+            # When every review is deleted, the service counts as unrated again.
+            self.assertTrue(store.save_rating(101, 0, 0, 4))
+            self.assertEqual(store.ratings(), {})
+
 
 if __name__ == "__main__":
     unittest.main()

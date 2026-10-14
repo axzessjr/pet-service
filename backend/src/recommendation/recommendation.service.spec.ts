@@ -40,6 +40,8 @@ describe('RecommendationService', () => {
                 serviceId: 102,
                 score: 1,
                 matchedNeeds: ['coat-care', 'low-stress'],
+                averageRating: 4.5,
+                reviewCount: 2,
             },
         ],
         createdAt: '2026-01-01T00:00:00Z',
@@ -148,6 +150,18 @@ describe('RecommendationService', () => {
             matches: [],
         });
         await expect(service.listSaved(1)).resolves.toEqual([]);
+    });
+
+    it('defaults ratings to 0 when proto3 omits them', async () => {
+        engine.recommend.mockReturnValue(
+            of({ matches: [{ serviceId: 102, score: 1 }] }),
+        );
+        const result = await service.recommendForPet(1);
+        expect(result.recommendations[0]).toMatchObject({
+            matchedNeeds: [],
+            averageRating: 0,
+            reviewCount: 0,
+        });
     });
 
     it('deletes a saved set', async () => {

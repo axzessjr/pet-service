@@ -19,6 +19,9 @@ export function Header({ isLoggedIn, currentUser, onLogout }: HeaderProps) {
             <NavLink to="/recommendations" className={({ isActive }) => `rounded-md px-2 py-2 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700 ${isActive ? 'text-teal-800 underline underline-offset-4' : 'text-gray-700 hover:text-teal-800'}`} >
                 For my pet
             </NavLink>
+            <NavLink to="/bookings" className={({ isActive }) => `rounded-md px-2 py-2 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700 ${isActive ? 'text-teal-800 underline underline-offset-4' : 'text-gray-700 hover:text-teal-800'}`} >
+                My bookings
+            </NavLink>
             {isLoggedIn && currentUser && (<>
                 <NavLink to="/profile">
                     <span className="text-sm font-medium text-teal-900 bg-teal-50 px-3 py-1.5 rounded-full border border-teal-200">

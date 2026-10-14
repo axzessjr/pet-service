@@ -5,6 +5,8 @@ export interface Recommendation {
     service: CatalogItem;
     score: number;
     matchedNeeds: string[];
+    averageRating: number;
+    reviewCount: number;
 }
 
 export interface PetRecommendations {
@@ -31,6 +33,9 @@ export interface RecommendationMatch {
     serviceId: number;
     score: number;
     matchedNeeds: string[];
+    // 0 when the service has no reviews.
+    averageRating: number;
+    reviewCount: number;
 }
 
 export interface SavedRecommendation {

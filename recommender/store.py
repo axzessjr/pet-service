@@ -34,6 +34,19 @@ class RecommendationStore:
                 "CREATE INDEX IF NOT EXISTS saved_recommendations_pet_id "
                 "ON saved_recommendations (pet_id, created_at DESC)"
             )
+            # Copy of each service's rating totals, kept current by review
+            # events from the usage and review service.
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS service_ratings (
+                    service_id INTEGER PRIMARY KEY,
+                    average_rating REAL NOT NULL,
+                    review_count INTEGER NOT NULL,
+                    version INTEGER NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=5)
@@ -96,3 +109,38 @@ class RecommendationStore:
                 "DELETE FROM saved_recommendations WHERE id = ?", (record_id,)
             )
             return result.rowcount > 0
+
+    def save_rating(
+        self, service_id: int, average_rating: float, review_count: int, version: int
+    ) -> bool:
+        """Store a service's totals unless an equal or newer version is already saved.
+
+        Events can arrive twice or out of order, so the version check keeps
+        the newest totals. Returns False when the event was stale.
+        """
+        with closing(self._connect()) as connection, connection:
+            result = connection.execute(
+                "INSERT INTO service_ratings "
+                "(service_id, average_rating, review_count, version, updated_at) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT (service_id) DO UPDATE SET "
+                "average_rating = excluded.average_rating, "
+                "review_count = excluded.review_count, "
+                "version = excluded.version, "
+                "updated_at = excluded.updated_at "
+                "WHERE excluded.version > service_ratings.version",
+                (service_id, average_rating, review_count, version, _timestamp()),
+            )
+            return result.rowcount > 0
+
+    def ratings(self) -> dict[int, tuple[float, int]]:
+        """Map service ID to (average rating, review count) for reviewed services."""
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT service_id, average_rating, review_count "
+                "FROM service_ratings WHERE review_count > 0"
+            ).fetchall()
+        return {
+            row["service_id"]: (row["average_rating"], row["review_count"])
+            for row in rows
+        }

@@ -1,4 +1,25 @@
 services:
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    # RabbitMQ stores data per node name, which comes from the hostname.
+    hostname: rabbitmq
+    environment:
+      # The built-in guest user only works from localhost, so services use this one.
+      RABBITMQ_DEFAULT_USER: pawpal
+      RABBITMQ_DEFAULT_PASS: pawpal
+    ports:
+      - "15672:15672" # management UI: http://localhost:15672
+    expose:
+      - "5672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   recommender:
     build:
       context: .
@@ -7,10 +28,47 @@ services:
       - "50051"
     environment:
       RECOMMENDATION_DB_PATH: /data/recommendations.sqlite3
+      RABBITMQ_URL: amqp://pawpal:pawpal@rabbitmq:5672
     volumes:
       - recommendation_data:/data
+    # No dependency on RabbitMQ: the consumer reconnects on its own, and
+    # recommendations keep working (with the last known ratings) while it is down.
     healthcheck:
       test: ["CMD", "python", "healthcheck.py"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
+  usage-review-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: usage_review
+      POSTGRES_USER: usage_review
+      POSTGRES_PASSWORD: usage_review
+    volumes:
+      - usage_review_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "usage_review", "-d", "usage_review"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  usage-review:
+    build:
+      context: .
+      dockerfile: usage-review/Dockerfile
+    expose:
+      - "3001"
+    environment:
+      DATABASE_URL: postgres://usage_review:usage_review@usage-review-db:5432/usage_review
+      RABBITMQ_URL: amqp://pawpal:pawpal@rabbitmq:5672
+    # RabbitMQ is not required to start: events wait in the outbox until it is up.
+    depends_on:
+      usage-review-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -24,10 +82,13 @@ services:
       - backend/.env
     environment:
       RECOMMENDATION_GRPC_URL: recommender:50051
+      USAGE_REVIEW_URL: http://usage-review:3001
     ports:
       - "3000:3000"
     depends_on:
       recommender:
+        condition: service_healthy
+      usage-review:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/catalog').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -48,3 +109,5 @@ services:
 
 volumes:
   recommendation_data:
+  usage_review_data:
+  rabbitmq_data:
