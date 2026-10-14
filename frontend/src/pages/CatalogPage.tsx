@@ -1,16 +1,12 @@
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router';
-import type { CatalogItem, Pet, ServiceRating } from '../types';
+import type { CatalogItem, Pet, Review, ServiceRating } from '../types';
 import type { User } from '../App';
+import { ReviewDialog } from '../components/ReviewDialog';
 import { RatingSummary } from '../components/Stars';
 import { ServiceReviewsDialog } from '../components/ServiceReviewsDialog';
-import {
-    controlClass,
-    primaryButtonClass,
-    secondaryButtonClass,
-    speciesLabel,
-} from '../components/ui';
-import { createUsage, listRatings, ownerIdOf } from '../usageReviewApi';
+import { primaryButtonClass, speciesLabel } from '../components/ui';
+import { listRatings, ownerIdOf } from '../reviewApi';
 
 async function loadCatalog(signal?: AbortSignal): Promise<CatalogItem[]> {
     const response = await fetch('/api/catalog', { signal });
@@ -41,19 +37,10 @@ export function CatalogPage({ currentUser }: CatalogPageProps) {
     );
     const [loading, setLoading] = useState(true);
     const [pets, setPets] = useState<Pet[]>([]);
-    const [petsLoaded, setPetsLoaded] = useState(false);
-    const [petsError, setPetsError] = useState('');
-    const [bookingServiceId, setBookingServiceId] = useState<number | null>(
-        null,
-    );
-    const [bookingPetId, setBookingPetId] = useState('');
-    const [booking, setBooking] = useState(false);
-    const [bookingError, setBookingError] = useState('');
-    const [booked, setBooked] = useState<{
-        serviceId: number;
-        petName: string;
-    } | null>(null);
     const [reviewsFor, setReviewsFor] = useState<CatalogItem | null>(null);
+    const [writing, setWriting] = useState(false);
+    // The review just saved, for the confirmation message.
+    const [saved, setSaved] = useState<Review | null>(null);
 
     const ownerId = ownerIdOf(currentUser);
 
@@ -101,167 +88,65 @@ export function CatalogPage({ currentUser }: CatalogPageProps) {
                 if (!response.ok) throw new Error('Could not load pets.');
                 return response.json() as Promise<Pet[]>;
             })
-            .then((data) => {
-                setPets(data);
-                setPetsLoaded(true);
-            })
-            .catch(() => {
-                if (!controller.signal.aborted) {
-                    setPetsError(
-                        'Could not load your pets, so booking is unavailable right now.',
-                    );
-                }
-            });
+            .then(setPets)
+            // The pet is optional in a review, so the page works without it.
+            .catch(() => undefined);
         return () => controller.abort();
     }, [currentUser?.id]);
 
-    const petsFor = (service: CatalogItem) =>
-        pets.filter((pet) => service.species.includes(pet.species));
-
-    function openBooking(service: CatalogItem) {
-        setBookingServiceId(service.id);
-        setBookingPetId(String(petsFor(service)[0]?.id ?? ''));
-        setBookingError('');
-        setBooked(null);
-    }
-
-    async function confirmBooking(
-        event: FormEvent<HTMLFormElement>,
-        service: CatalogItem,
-    ) {
-        event.preventDefault();
-        const pet = pets.find((item) => item.id === Number(bookingPetId));
-        if (!ownerId || !pet) return;
-        setBooking(true);
-        setBookingError('');
-        try {
-            await createUsage(ownerId, pet.id, service.id);
-            setBookingServiceId(null);
-            setBooked({ serviceId: service.id, petName: pet.name });
-        } catch (error) {
-            setBookingError(
-                error instanceof Error
-                    ? error.message
-                    : 'Could not book this service.',
-            );
-        } finally {
-            setBooking(false);
-        }
-    }
-
-    function bookingArea(service: CatalogItem) {
-        if (booked?.serviceId === service.id) {
-            return (
-                <p role="status" className="m-0 rounded-lg bg-green-50 p-2 text-sm text-green-900">
-                    <i aria-hidden="true" className="fa-solid fa-circle-check mr-1"></i>
-                    Booked for {booked.petName}.{' '}
-                    <Link to="/bookings" className="font-semibold text-green-900 underline">
-                        View my bookings
-                    </Link>
-                </p>
-            );
-        }
-
-        if (bookingServiceId === service.id) {
-            const eligible = petsFor(service);
-            return (
-                <form onSubmit={(event) => confirmBooking(event, service)}>
-                    <label
-                        htmlFor={`book-pet-${service.id}`}
-                        className="block text-sm font-semibold text-gray-900"
-                    >
-                        Book for
-                    </label>
-                    <select
-                        id={`book-pet-${service.id}`}
-                        value={bookingPetId}
-                        onChange={(event) => setBookingPetId(event.target.value)}
-                        disabled={booking}
-                        className={`${controlClass} mt-1 w-full`}
-                    >
-                        {eligible.map((pet) => (
-                            <option key={pet.id} value={pet.id}>
-                                {pet.name} · {pet.species}
-                            </option>
-                        ))}
-                    </select>
-                    {bookingError && (
-                        <p role="alert" className="mb-0 mt-2 text-sm text-red-800">
-                            {bookingError}
-                        </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        <button type="submit" disabled={booking} className={primaryButtonClass}>
-                            {booking ? 'Booking...' : 'Confirm'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setBookingServiceId(null)}
-                            disabled={booking}
-                            className={secondaryButtonClass}
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </form>
-            );
-        }
-
-        if (!ownerId || petsError) return null;
-        // Pets load slower than the catalog; keep the button's space meanwhile.
-        if (!petsLoaded) {
-            return (
-                <button type="button" disabled className={`${primaryButtonClass} w-full`}>
-                    Book
-                </button>
-            );
-        }
-        if (petsFor(service).length === 0) {
-            return (
-                <p className="m-0 text-sm text-gray-600">
-                    <Link to="/profile" className="font-semibold text-teal-800 underline">
-                        Add a {service.species.join(' or ')}
-                    </Link>{' '}
-                    to book this.
-                </p>
-            );
-        }
-        return (
-            <button
-                type="button"
-                onClick={() => openBooking(service)}
-                disabled={booking}
-                className={`${primaryButtonClass} w-full`}
-            >
-                Book
-            </button>
-        );
+    function reviewSaved(review: Review) {
+        setSaved(review);
+        // The new average comes straight from the review service.
+        void loadRatings().then(setRatings);
     }
 
     return (
         <div>
             {/* We use Flexbox here to put the title and the button on the same line */}
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
                 <h2 className="text-2xl font-bold text-gray-800 m-0">
                     <i className="fa-solid fa-store mr-2 text-blue-500"></i>
                     Available Services
                 </h2>
 
-                {/* 3. The Refresh Button! */}
-                <button
-                    onClick={fetchServices}
-                    className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2 cursor-pointer border-0"
-                >
-                    <i
-                        className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`}
-                    ></i>
-                    Refresh
-                </button>
+                <div className="flex flex-wrap gap-3">
+                    {/* Reviews start by choosing the service that was used, so
+                        an owner can review the same service after each visit. */}
+                    {ownerId && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setWriting(true);
+                                setSaved(null);
+                            }}
+                            disabled={services.length === 0}
+                            className={primaryButtonClass}
+                        >
+                            <i aria-hidden="true" className="fa-solid fa-star mr-2"></i>
+                            Write a review
+                        </button>
+                    )}
+
+                    {/* 3. The Refresh Button! */}
+                    <button
+                        onClick={fetchServices}
+                        className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2 cursor-pointer border-0"
+                    >
+                        <i
+                            className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`}
+                        ></i>
+                        Refresh
+                    </button>
+                </div>
             </div>
 
-            {petsError && (
-                <p role="alert" className="mb-4 rounded-lg bg-amber-50 p-3 text-amber-900">
-                    {petsError}
+            {saved && (
+                <p role="status" className="mb-4 rounded-lg bg-green-50 p-3 text-green-900">
+                    <i aria-hidden="true" className="fa-solid fa-circle-check mr-2"></i>
+                    Thanks! Your review of {saved.service.title} is saved.{' '}
+                    <Link to="/reviews" className="font-semibold text-green-900 underline">
+                        My reviews
+                    </Link>
                 </p>
             )}
 
@@ -299,7 +184,6 @@ export function CatalogPage({ currentUser }: CatalogPageProps) {
                                         reviewCount={rating?.reviewCount ?? 0}
                                         onClick={() => setReviewsFor(service)}
                                     />
-                                    {bookingArea(service)}
                                 </div>
                             </li>
                         );
@@ -314,6 +198,15 @@ export function CatalogPage({ currentUser }: CatalogPageProps) {
                     averageRating={ratings.get(reviewsFor.id)?.averageRating ?? 0}
                     reviewCount={ratings.get(reviewsFor.id)?.reviewCount ?? 0}
                     onClose={() => setReviewsFor(null)}
+                />
+            )}
+            {writing && ownerId && (
+                <ReviewDialog
+                    ownerId={ownerId}
+                    services={services}
+                    pets={pets}
+                    onSaved={reviewSaved}
+                    onClose={() => setWriting(false)}
                 />
             )}
         </div>

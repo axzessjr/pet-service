@@ -42,31 +42,27 @@ export type RecommendationMatch = {
     reviewCount: number;
 };
 
-export type UsageStatus = 'booked' | 'completed' | 'cancelled';
+export type AspectKey = 'quality' | 'value' | 'punctuality' | 'friendliness';
 
-// One booking of a catalog service for a pet. Title, provider, and price are
-// copied at booking time.
-export type Usage = {
-    id: number;
-    ownerId: number;
-    petId: number;
-    serviceId: number;
-    serviceTitle: string;
-    provider: string;
-    price: number;
-    status: UsageStatus;
-    completedAt: string | null;
-    createdAt: string;
-    updatedAt: string;
-};
+// Optional 1-5 ratings for parts of the visit.
+export type Aspects = Partial<Record<AspectKey, number>>;
 
+// A review stored in the review service (MongoDB). `service` and `pet` are
+// copies taken when the review was written.
 export type Review = {
-    id: number;
-    usageId: number;
+    id: string;
     serviceId: number;
+    service: { title: string; provider: string };
     ownerId: number;
+    pet: { id: number; name: string; species: string } | null;
     rating: number;
+    aspects: Aspects | null;
+    title: string;
     comment: string;
+    visitedOn: string | null;
+    tags: string[];
+    wouldRecommend: boolean | null;
+    photos: { id: string; width: number; height: number }[];
     createdAt: string;
     updatedAt: string;
 };
@@ -75,6 +71,9 @@ export type ServiceRating = {
     serviceId: number;
     averageRating: number;
     reviewCount: number;
+    aspects: Record<AspectKey, number | null>;
+    recommendPercent: number | null;
+    photoCount: number;
 };
 
 export type SavedRecommendation = {
