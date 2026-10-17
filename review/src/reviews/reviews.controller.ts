@@ -4,23 +4,27 @@ import {
     Controller,
     Delete,
     Get,
+    Header,
     HttpCode,
     HttpStatus,
     Param,
-    ParseIntPipe,
     Patch,
     Post,
     Query,
+    StreamableFile,
 } from '@nestjs/common';
-import { positiveIntegerParam } from '../common/validation';
+import { objectId, positiveIntegerParam } from '../common/validation';
+import { PhotoStore } from './photo-store';
 import { ReviewsService } from './reviews.service';
 
 @Controller('reviews')
 export class ReviewsController {
     constructor(private readonly reviewsService: ReviewsService) {}
 
+    // Body: serviceId, service {title, provider}, ownerId, pet?, rating,
+    // aspects?, title?, comment?, visitedOn?, tags?, wouldRecommend?, photos?
     @Post()
-    create(@Body() body: Record<string, unknown>) {
+    create(@Body() body: unknown) {
         return this.reviewsService.create(body);
     }
 
@@ -31,9 +35,7 @@ export class ReviewsController {
         @Query('ownerId') ownerId?: string,
     ) {
         if ((serviceId === undefined) === (ownerId === undefined)) {
-            throw new BadRequestException(
-                'Provide either serviceId or ownerId',
-            );
+            throw new BadRequestException('Provide either serviceId or ownerId');
         }
         return this.reviewsService.list(
             serviceId !== undefined
@@ -43,26 +45,22 @@ export class ReviewsController {
     }
 
     @Get(':id')
-    get(@Param('id', ParseIntPipe) id: number) {
-        return this.reviewsService.get(id);
+    get(@Param('id') id: string) {
+        return this.reviewsService.get(objectId(id, 'id'));
     }
 
+    // Body: ownerId + any of rating, aspects, title, comment, visitedOn,
+    // tags, wouldRecommend, addPhotos, removePhotoIds
     @Patch(':id')
-    update(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() body: Record<string, unknown>,
-    ) {
-        return this.reviewsService.update(id, body);
+    update(@Param('id') id: string, @Body() body: unknown) {
+        return this.reviewsService.update(objectId(id, 'id'), body);
     }
 
     @Delete(':id')
     @HttpCode(HttpStatus.NO_CONTENT)
-    remove(
-        @Param('id', ParseIntPipe) id: number,
-        @Query('ownerId') ownerId: string,
-    ) {
+    remove(@Param('id') id: string, @Query('ownerId') ownerId: string) {
         return this.reviewsService.delete(
-            id,
+            objectId(id, 'id'),
             positiveIntegerParam(ownerId, 'ownerId'),
         );
     }
@@ -75,5 +73,18 @@ export class RatingsController {
     @Get()
     list() {
         return this.reviewsService.ratings();
+    }
+}
+
+@Controller('photos')
+export class PhotosController {
+    constructor(private readonly photos: PhotoStore) {}
+
+    // A photo never changes once stored, so browsers may cache it.
+    @Get(':id')
+    @Header('Cache-Control', 'public, max-age=86400, immutable')
+    async get(@Param('id') id: string) {
+        const { stream, length } = await this.photos.open(objectId(id, 'id'));
+        return new StreamableFile(stream, { type: 'image/jpeg', length });
     }
 }

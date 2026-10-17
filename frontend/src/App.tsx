@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router';
-import { BookingsPage } from './pages/BookingsPage';
 import { CatalogPage } from './pages/CatalogPage';
 import { LoginPage } from './pages/LoginPage';
+import { MyReviewsPage } from './pages/MyReviewsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
 import { Header } from './components/Header';
@@ -74,9 +74,9 @@ function App() {
                                 <RecommendationsPage currentUser={currentUser} />
                             </ProtectedRoute>}
                         />
-                        <Route path="/bookings" element={
+                        <Route path="/reviews" element={
                             <ProtectedRoute isLoggedIn={isLoggedIn}>
-                                <BookingsPage currentUser={currentUser} />
+                                <MyReviewsPage currentUser={currentUser} />
                             </ProtectedRoute>}
                         />
                         <Route path="/profile" element={

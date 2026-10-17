@@ -1,3 +1,5 @@
+import type { AspectKey } from '../types';
+
 // Shared Tailwind classes for form controls and buttons.
 export const controlClass =
     'min-h-11 rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700';
@@ -19,4 +21,19 @@ export function formatDate(value: string): string {
 
 export function speciesLabel(species: string[]): string {
     return `For ${species.map((value) => `${value}s`).join(' and ')}`;
+}
+
+export const ASPECT_LABELS: Record<AspectKey, string> = {
+    quality: 'Quality of care',
+    value: 'Value for money',
+    punctuality: 'On time',
+    friendliness: 'Friendliness',
+};
+
+// For calendar dates such as "2026-10-12", shown in the reader's time zone.
+export function formatDay(value: string): string {
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime())
+        ? value
+        : date.toLocaleDateString(undefined, { dateStyle: 'medium' });
 }

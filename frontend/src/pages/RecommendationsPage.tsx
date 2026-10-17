@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
 import type { CatalogItem, Pet, PetRecommendations } from '../types';
 import type { User } from '../App';
 import { SavedRecommendations } from '../components/SavedRecommendations';
 import { ServiceReviewsDialog } from '../components/ServiceReviewsDialog';
 import { RatingSummary } from '../components/Stars';
-import { primaryButtonClass } from '../components/ui';
-import { createUsage, ownerIdOf } from '../usageReviewApi';
 
 function readableTag(tag: string): string {
     return tag.replaceAll('-', ' ');
@@ -25,12 +22,6 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
     const [profileError, setProfileError] = useState('');
     const [resultError, setResultError] = useState('');
     const [retryCount, setRetryCount] = useState(0);
-    const [bookingServiceId, setBookingServiceId] = useState<number | null>(null);
-    const [bookingResult, setBookingResult] = useState<{
-        serviceId: number;
-        text: string;
-        error: boolean;
-    } | null>(null);
     const [reviewsFor, setReviewsFor] = useState<{
         service: CatalogItem;
         averageRating: number;
@@ -99,32 +90,6 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
 
     const selectedPet = pets.find((pet) => pet.id === selectedPetId);
 
-    async function book(pet: Pet, service: CatalogItem) {
-        const ownerId = ownerIdOf(currentUser);
-        if (ownerId === null) return;
-        setBookingServiceId(service.id);
-        setBookingResult(null);
-        try {
-            await createUsage(ownerId, pet.id, service.id);
-            setBookingResult({
-                serviceId: service.id,
-                text: `Booked for ${pet.name}.`,
-                error: false,
-            });
-        } catch (error) {
-            setBookingResult({
-                serviceId: service.id,
-                text:
-                    error instanceof Error
-                        ? error.message
-                        : 'Could not book this service.',
-                error: true,
-            });
-        } finally {
-            setBookingServiceId(null);
-        }
-    }
-
     return (
         <main>
             <div className="mb-6">
@@ -164,7 +129,6 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
                         onChange={(event) => {
                             setResults(null);
                             setResultError('');
-                            setBookingResult(null);
                             setLoadingResults(true);
                             setSelectedPetId(Number(event.target.value));
                         }}
@@ -264,60 +228,6 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
                                                         })
                                                     }
                                                 />
-                                            </div>
-                                            <div className="mt-4">
-                                                {bookingResult?.serviceId ===
-                                                    service.id &&
-                                                !bookingResult.error ? (
-                                                    <p
-                                                        role="status"
-                                                        className="m-0 rounded-lg bg-green-50 p-2 text-sm text-green-900"
-                                                    >
-                                                        <i
-                                                            aria-hidden="true"
-                                                            className="fa-solid fa-circle-check mr-1"
-                                                        ></i>
-                                                        {bookingResult.text}{' '}
-                                                        <Link
-                                                            to="/bookings"
-                                                            className="font-semibold text-green-900 underline"
-                                                        >
-                                                            View my bookings
-                                                        </Link>
-                                                    </p>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            book(
-                                                                results.pet,
-                                                                service,
-                                                            )
-                                                        }
-                                                        disabled={
-                                                            bookingServiceId !==
-                                                            null
-                                                        }
-                                                        className={
-                                                            primaryButtonClass
-                                                        }
-                                                    >
-                                                        {bookingServiceId ===
-                                                        service.id
-                                                            ? 'Booking...'
-                                                            : `Book for ${results.pet.name}`}
-                                                    </button>
-                                                )}
-                                                {bookingResult?.serviceId ===
-                                                    service.id &&
-                                                    bookingResult.error && (
-                                                        <p
-                                                            role="alert"
-                                                            className="mb-0 mt-2 text-sm text-red-800"
-                                                        >
-                                                            {bookingResult.text}
-                                                        </p>
-                                                    )}
                                             </div>
                                         </li>
                                     ),

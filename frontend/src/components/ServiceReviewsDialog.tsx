@@ -1,8 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Review } from '../types';
-import { listServiceReviews } from '../usageReviewApi';
-import { RatingSummary, Stars } from './Stars';
-import { formatDate, secondaryButtonClass } from './ui';
+import { listServiceReviews } from '../reviewApi';
+import type { AspectKey, Review } from '../types';
+import { ReviewDetails } from './ReviewDetails';
+import { RatingSummary } from './Stars';
+import { ASPECT_LABELS, secondaryButtonClass } from './ui';
+
+// Averages of the optional detail ratings and the share of reviewers who
+// would recommend the service, from the reviews shown.
+function summarize(reviews: Review[]) {
+    const aspects = (Object.keys(ASPECT_LABELS) as AspectKey[])
+        .map((key) => {
+            const values = reviews
+                .map((review) => review.aspects?.[key])
+                .filter((value): value is number => value !== undefined);
+            return {
+                key,
+                count: values.length,
+                average: values.reduce((sum, value) => sum + value, 0) / (values.length || 1),
+            };
+        })
+        .filter((aspect) => aspect.count > 0);
+    const answered = reviews.filter((review) => review.wouldRecommend !== null);
+    const yes = answered.filter((review) => review.wouldRecommend).length;
+    return {
+        aspects,
+        recommendPercent: answered.length ? Math.round((yes / answered.length) * 100) : null,
+        answered: answered.length,
+    };
+}
 
 interface ServiceReviewsDialogProps {
     serviceId: number;
@@ -25,6 +50,7 @@ export function ServiceReviewsDialog({
     const [reviews, setReviews] = useState<Review[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const summary = reviews.length > 0 ? summarize(reviews) : null;
 
     useEffect(() => {
         dialogRef.current?.showModal();
@@ -57,7 +83,7 @@ export function ServiceReviewsDialog({
                 if (event.target === dialogRef.current) dialogRef.current.close();
             }}
             aria-labelledby="reviews-dialog-title"
-            className="w-[calc(100%-2rem)] max-w-lg rounded-2xl border-0 p-0 shadow-xl backdrop:bg-black/40"
+            className="w-[calc(100%-2rem)] max-w-2xl rounded-2xl border-0 p-0 shadow-xl backdrop:bg-black/40"
         >
             <div className="max-h-[80vh] overflow-y-auto p-5">
                 <div className="flex items-start justify-between gap-3">
@@ -101,30 +127,36 @@ export function ServiceReviewsDialog({
                             No reviews yet.
                         </p>
                     )}
+                    {!loading && !error && summary && (summary.aspects.length > 0 || summary.recommendPercent !== null) && (
+                        <div className="mb-2 rounded-xl bg-gray-50 p-4">
+                            {summary.recommendPercent !== null && (
+                                <p className="m-0 font-semibold text-gray-900">
+                                    <i aria-hidden="true" className="fa-solid fa-thumbs-up mr-2 text-green-700"></i>
+                                    {summary.recommendPercent}% would recommend
+                                    <span className="font-normal text-gray-600">
+                                        {' '}({summary.answered} {summary.answered === 1 ? 'answer' : 'answers'})
+                                    </span>
+                                </p>
+                            )}
+                            {summary.aspects.length > 0 && (
+                                <dl className="m-0 mt-2 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                                    {summary.aspects.map((aspect) => (
+                                        <div key={aspect.key} className="flex justify-between gap-2">
+                                            <dt className="text-gray-600">{ASPECT_LABELS[aspect.key]}</dt>
+                                            <dd className="m-0 font-semibold text-gray-900">
+                                                {aspect.average.toFixed(1)}/5
+                                            </dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            )}
+                        </div>
+                    )}
                     {!loading && !error && reviews.length > 0 && (
                         <ul className="m-0 list-none divide-y divide-gray-200 p-0">
                             {reviews.map((review) => (
-                                <li key={review.id} className="py-3">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <span>
-                                            <Stars rating={review.rating} />
-                                            <span className="sr-only">
-                                                {review.rating} out of 5 stars
-                                            </span>
-                                        </span>
-                                        <span className="text-xs text-gray-600">
-                                            {formatDate(review.createdAt)}
-                                        </span>
-                                    </div>
-                                    {review.comment ? (
-                                        <p className="mb-0 mt-2 whitespace-pre-line text-gray-800">
-                                            {review.comment}
-                                        </p>
-                                    ) : (
-                                        <p className="mb-0 mt-2 text-sm italic text-gray-500">
-                                            No comment
-                                        </p>
-                                    )}
+                                <li key={review.id} className="py-4">
+                                    <ReviewDetails review={review} />
                                 </li>
                             ))}
                         </ul>

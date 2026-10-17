@@ -2,7 +2,7 @@
 
 Pawpal is a pet service catalog with recommendations for a selected pet. The React frontend calls a NestJS HTTP API, which acts as the API gateway. NestJS sends the pet and current catalog over gRPC to a Python service, which ranks compatible services by tag similarity. The Python service can also save, read, recalculate, and delete recommendation sets.
 
-Pet owners can book services and review them through the usage and review service, a separate NestJS service with its own PostgreSQL database. Each review change is published to RabbitMQ, and the recommender uses the resulting average ratings to break ranking ties.
+After using a service, pet owners can review it with a rating, text, and photos. Reviews are kept by the review service, a separate NestJS service that stores them in MongoDB Atlas. Each review change is published to RabbitMQ, and the recommender uses the resulting average ratings to break ranking ties.
 
 ## Run with Docker
 
@@ -15,7 +15,11 @@ docker compose up --build
 
 In PowerShell, set `$env:DATABASE_URL` instead of using `export`. The backend needs this connection to read the existing `pets` table. The recommender saves sets in SQLite on the `recommendation_data` Docker volume.
 
-Open <http://localhost:5173> and choose **For my pet**. Compose starts RabbitMQ, the Python recommender, the usage and review service with its PostgreSQL database, the NestJS API, and the nginx-hosted frontend. The API is also available at <http://localhost:3000>. The RabbitMQ management UI is at <http://localhost:15672> (user `pawpal`, password `pawpal`). Stop the stack with `docker compose down`.
+Before the first run, copy `review/.env.example` to `review/.env` and set `MONGODB_URL` to your MongoDB Atlas connection string. To get it, open your Atlas cluster and choose **Connect > Drivers**. The Atlas database user needs read and write access to the `reviews` database. Atlas **Network Access** must allow the public IP address of each machine that runs the stack. Git ignores `review/.env`, and the Docker build leaves it out of every image.
+
+To work offline, use the bundled MongoDB instead. Set `MONGODB_URL=mongodb://review:review@review-db:27017/?authSource=admin` in `review/.env` and start the stack with `docker compose --profile local-db up --build`.
+
+Open <http://localhost:5173> and choose **For my pet**. Compose starts RabbitMQ, the Python recommender, the review service (connected to MongoDB Atlas), the NestJS API, and the nginx-hosted frontend. The API is also available at <http://localhost:3000>. The RabbitMQ management UI is at <http://localhost:15672> (user `pawpal`, password `pawpal`). Stop the stack with `docker compose down`.
 
 ## Run locally
 
@@ -49,7 +53,7 @@ npm run dev
 
 The Vite development server proxies `/api` to `http://localhost:3000`. Override that target with `BACKEND_URL` if needed. The backend calls `localhost:50051` by default; override it with `RECOMMENDATION_GRPC_URL`.
 
-The usage and review service needs PostgreSQL, so Docker Compose is the simplest way to run it. To run it outside Docker, set `DATABASE_URL` to a PostgreSQL database it can create tables in and `RABBITMQ_URL` to a broker, then run `npm ci` and `npm run start:dev` in `usage-review`. It listens on port 3001, which the backend calls by default; override that with `USAGE_REVIEW_URL`. Set `RABBITMQ_URL` for the recommender too if it should receive rating updates.
+To run the review service outside Docker, add `RABBITMQ_URL` for a broker to `review/.env`, next to `MONGODB_URL`, then run `npm ci` and `npm run start:dev` in `review`. The service reads `review/.env` on startup. `MONGODB_DB` sets the database name (default `reviews`). It listens on port 3001, which the backend calls by default; override that with `REVIEW_URL`. Set `RABBITMQ_URL` for the recommender too if it should receive rating updates.
 
 ## Recommendations
 
@@ -90,34 +94,70 @@ The existing `GET /recommendation/pets/:petId` calculates live recommendations w
 
 The saved response contains `id`, `petId`, `limit`, `matches` (service IDs, scores, matched needs), `createdAt`, and `updatedAt`. A saved set is a snapshot. Reading it does not recalculate it; `PUT` does. Missing sets return HTTP 404. The API currently does not enforce user ownership, so these routes should be protected before exposing them to untrusted clients.
 
-## Usages and reviews
+## Reviews
 
-A usage is one booking of a catalog service for a pet. It starts as `booked` and can move once to `completed` or `cancelled`. A completed usage can receive one review with a 1-5 `rating` and an optional `comment`.
+Pawpal does not take bookings. Owners find a service in the catalog or in their recommendations, use it with the provider directly, then come back to review it. Each review is for one visit, so an owner can review the same service again after each visit, and edit or delete any of their reviews later.
 
-In the frontend, choose **Book** on a **Catalog** card or **Book for {pet}** on a **For my pet** result. The catalog only offers pets whose species the service supports. **My bookings** lists upcoming bookings, where you can mark one as completed or cancel it, and past ones, where you can write, edit, or delete a review. Catalog and recommendation cards show each service's average rating; select it to read the reviews.
+A review has a 1-5 `rating` and can also have:
+
+- ratings for `quality`, `value`, `punctuality`, and `friendliness`
+- a `title` and a `comment`
+- `visitedOn`, the date of the visit (YYYY-MM-DD, within the last two years)
+- up to 8 `tags`
+- `wouldRecommend` (true or false)
+- the pet that used the service
+- up to 4 photos
+
+In the frontend, choose **Write a review** at the top of the **Catalog**. Choose the service you used, and then the pet that went. Only pets whose species the service supports are listed. The visit date starts as today. **My reviews** lists your reviews, where you can edit or delete them. **For my pet** only shows the recommended services and their ratings.
+
+Select a service's rating to:
+
+- read its reviews and see the photos
+- read the average for each part of the visit
+- see what share of owners would recommend it
+
+Reviews live in MongoDB in the review service, a separate NestJS service.
 
 | Method | Path | Action |
 | --- | --- | --- |
-| `POST` | `/usages` | Book a service from `{ "ownerId": 1, "petId": 6, "serviceId": 106 }`. The gateway checks that the pet belongs to the owner and that the service supports its species, then stores the service title, provider, and price with the usage. |
-| `GET` | `/usages?ownerId=1` | List an owner's usages, newest first. |
-| `GET` | `/usages/:id` | Read one usage. |
-| `PATCH` | `/usages/:id` | Change a booked usage with `{ "ownerId": 1, "status": "completed" }` or `"cancelled"`. |
-| `POST` | `/reviews` | Review a completed usage with `{ "usageId": 1, "ownerId": 1, "rating": 5, "comment": "..." }`. |
-| `GET` | `/reviews?serviceId=106` or `/reviews?ownerId=1` | List reviews for a service or by an owner. |
+| `POST` | `/reviews` | Create a review, for example `{ "serviceId": 106, "ownerId": 1, "petId": 6, "rating": 5, "aspects": { "quality": 5 }, "title": "...", "comment": "...", "visitedOn": "2026-10-12", "tags": ["gentle"], "wouldRecommend": true, "photos": ["data:image/jpeg;base64,..."] }`. Only `serviceId`, `ownerId`, and `rating` are required. The gateway checks that the service exists and, if `petId` is sent, that the pet belongs to the owner and the service supports its species. It then stores the service and pet names with the review. |
+| `GET` | `/reviews?serviceId=106` or `/reviews?ownerId=1` | List reviews for a service or by an owner, newest first. |
 | `GET` | `/reviews/:id` | Read one review. |
-| `PATCH` | `/reviews/:id` | Change `rating` and/or `comment`; include `ownerId`. |
-| `DELETE` | `/reviews/:id?ownerId=1` | Delete a review; returns HTTP 204. |
-| `GET` | `/ratings` | Average rating and review count for every reviewed service. |
+| `PATCH` | `/reviews/:id` | Change any review field. Include `ownerId`. Use `addPhotos` and `removePhotoIds` for photos. `null` clears `aspects`, `visitedOn`, or `wouldRecommend`. |
+| `DELETE` | `/reviews/:id?ownerId=1` | Delete a review and its photos; returns HTTP 204. |
+| `GET` | `/reviews/photos/:photoId` | Read a review photo (JPEG). |
+| `GET` | `/ratings` | Get, for every reviewed service: the average rating, the review count, the average for each part of the visit, the percentage of owners who would recommend it, and the photo count. |
 
-Reviewing a usage that is not completed, reviewing it twice, or changing a usage that is no longer `booked` returns HTTP 409. Another owner's usage or review returns HTTP 404. Like the pet and saved-set routes, these trust the `ownerId` in the request, so add authentication before exposing them to untrusted clients.
+Review IDs and photo IDs are 24-character MongoDB ObjectIds.
+
+An edit that arrives while another edit of the same review is in progress returns HTTP 409. Another owner's review returns HTTP 404. Like the pet and saved-set routes, these routes trust the `ownerId` in the request, so add authentication before exposing them to untrusted clients.
+
+### Photos
+
+The browser shrinks each photo to at most 1280 pixels on its longest side before uploading it as base64 JSON. The review service then:
+
+- accepts JPEG, PNG, WebP, HEIF, or AVIF up to 5 MB each
+- rotates the photo upright
+- resizes it to at most 1280 pixels
+- saves it as JPEG in MongoDB GridFS (`review_photos`)
+
+Re-encoding removes EXIF data such as GPS location. A request can be up to 12 MB. nginx, the gateway, and the review service all allow that size.
+
+### MongoDB data
+
+The database is MongoDB Atlas, set by `MONGODB_URL`. Atlas's free M0 tier (512 MB) holds roughly a couple of thousand resized photos.
+
+Each review is one document in the `reviews` collection, with the service and pet names copied in. Deleting a review keeps the document, marks it `deleted`, and removes its photos. Every visit counts in the averages, including repeat visits by the same owner. The `/ratings` totals are computed from the reviews with an aggregation each time they are requested.
 
 ### How review events reach the recommender
 
-1. The usage and review service saves the review, updates that service's running totals in `service_ratings`, and writes an event to an `outbox` table, all in one transaction.
-2. A publisher in the same service reads unsent outbox rows every second, publishes them to the `pawpal.events` topic exchange with routing keys `review.created`, `review.updated`, or `review.deleted`, waits for RabbitMQ to confirm, and marks them sent.
+1. When the review service saves a change, it also marks the review with the event to send (`review.created`, `review.updated`, or `review.deleted`). Both are written in one MongoDB update, so the event cannot be lost without the change.
+2. A publisher in the same service checks for marked reviews every second. A lease in the `locks` collection lets only one publisher run at a time. The publisher works out the service's new average and review count from its reviews and takes the next version number from `service_versions`. It publishes to the `pawpal.events` topic exchange, waits for RabbitMQ to confirm, and clears the mark.
 3. The recommender consumes `review.*` from the `recommendation.review-events` queue and stores each service's `averageRating` and `reviewCount`. Every event has an increasing `version`, so duplicates and late events are ignored.
 
-If RabbitMQ is down, reviews are still saved and their events wait in the outbox until it returns; recommendations keep using the last known ratings. The usage and review data lives in the `usage_review_data` volume. If you delete that volume, delete `recommendation_data` too, because new rating versions restart at 1 and the recommender would ignore them.
+A version is never lower than the current time in milliseconds. Versions therefore keep increasing even after the review database is replaced, for example when moving from the local MongoDB to Atlas.
+
+If RabbitMQ is down, reviews are still saved and stay marked until it returns. Meanwhile, recommendations keep using the last known ratings.
 
 ## API and data
 
@@ -139,7 +179,8 @@ npm run build
 ```
 
 ```powershell
-cd usage-review
+cd review
+npm test
 npm run build
 ```
 

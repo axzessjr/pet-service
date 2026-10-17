@@ -1,7 +1,7 @@
 {
-  "name": "usage-review",
+  "name": "review",
   "version": "0.0.1",
-  "description": "Usage and review service: bookings, reviews, and rating events",
+  "description": "Review service: reviews with photos in MongoDB, rating events to RabbitMQ",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -16,9 +16,11 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "amqplib": "^0.10.5",
-    "pg": "^8.23.1",
+    "dotenv": "^18.0.8",
+    "mongodb": "^7.7.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "sharp": "^0.34.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
@@ -26,7 +28,6 @@
     "@types/amqplib": "^0.10.5",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
-    "@types/pg": "^8.23.1",
     "jest": "^30.0.0",
     "ts-jest": "^29.2.5",
     "typescript": "^5.7.3"

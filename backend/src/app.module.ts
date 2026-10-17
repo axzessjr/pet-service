@@ -8,7 +8,7 @@ import { RecommendationModule } from './recommendation/recommendation.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DatabaseModule } from './database/database.module';
-import { UsageReviewModule } from './usage-review/usage-review.module';
+import { ReviewModule } from './review/review.module';
 
 @Module({
     imports: [
@@ -18,7 +18,7 @@ import { UsageReviewModule } from './usage-review/usage-review.module';
         RecommendationModule,
         AuthModule,
         UsersModule,
-        UsageReviewModule,
+        ReviewModule,
     ],
     controllers: [AppController],
     providers: [AppService],

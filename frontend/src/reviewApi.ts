@@ -1,9 +1,14 @@
-import type { Review, ServiceRating, Usage } from './types';
+import type { Aspects, Review, ServiceRating } from './types';
 
 // The API rejects text IDs, but login returns the user ID as text.
 export function ownerIdOf(user: { id: unknown } | null): number | null {
     const id = Number(user?.id);
     return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+// Photos are served through the gateway and cached by the browser.
+export function photoUrl(photoId: string) {
+    return `/api/reviews/photos/${photoId}`;
 }
 
 async function request<T>(
@@ -21,11 +26,20 @@ async function request<T>(
         body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
     if (response.status === 204) return undefined as T;
+    if (response.status === 413) {
+        throw new Error('The photos are too large. Try fewer or smaller photos.');
+    }
     const data = await response.json().catch(() => undefined);
     if (!response.ok) {
-        // The API explains conflicts like "Only completed usages can be reviewed".
+        // The API explains conflicts like "You already reviewed this service".
         const message = data?.message;
-        throw new Error(typeof message === 'string' ? message : fallback);
+        throw new Error(
+            typeof message === 'string'
+                ? message
+                : Array.isArray(message)
+                  ? message.join(' ')
+                  : fallback,
+        );
     }
     return data as T;
 }
@@ -33,32 +47,6 @@ async function request<T>(
 export function listRatings(signal?: AbortSignal) {
     return request<ServiceRating[]>('/ratings', 'Could not load ratings.', {
         signal,
-    });
-}
-
-export function createUsage(ownerId: number, petId: number, serviceId: number) {
-    return request<Usage>('/usages', 'Could not book this service.', {
-        method: 'POST',
-        body: { ownerId, petId, serviceId },
-    });
-}
-
-export function listUsages(ownerId: number, signal?: AbortSignal) {
-    return request<Usage[]>(
-        `/usages?ownerId=${ownerId}`,
-        'Could not load your bookings.',
-        { signal },
-    );
-}
-
-export function updateUsageStatus(
-    id: number,
-    ownerId: number,
-    status: 'completed' | 'cancelled',
-) {
-    return request<Usage>(`/usages/${id}`, 'Could not update this booking.', {
-        method: 'PATCH',
-        body: { ownerId, status },
     });
 }
 
@@ -78,31 +66,54 @@ export function listServiceReviews(serviceId: number, signal?: AbortSignal) {
     );
 }
 
+// Fields shared by a new review and an edit. Photos are JPEG data URLs.
+export type ReviewFields = {
+    rating: number;
+    aspects: Aspects | null;
+    title: string;
+    comment: string;
+    visitedOn: string | null;
+    tags: string[];
+    wouldRecommend: boolean | null;
+};
+
 export function createReview(
-    usageId: number,
-    ownerId: number,
-    rating: number,
-    comment: string,
+    input: ReviewFields & {
+        ownerId: number;
+        serviceId: number;
+        petId: number | null;
+        photos: string[];
+    },
 ) {
+    const { petId, aspects, visitedOn, wouldRecommend, ...rest } = input;
+    // The API leaves out optional fields that are not set.
     return request<Review>('/reviews', 'Could not post your review.', {
         method: 'POST',
-        body: { usageId, ownerId, rating, comment },
+        body: {
+            ...rest,
+            ...(petId ? { petId } : {}),
+            ...(aspects ? { aspects } : {}),
+            ...(visitedOn ? { visitedOn } : {}),
+            ...(wouldRecommend === null ? {} : { wouldRecommend }),
+        },
     });
 }
 
 export function updateReview(
-    id: number,
-    ownerId: number,
-    rating: number,
-    comment: string,
+    id: string,
+    input: ReviewFields & {
+        ownerId: number;
+        addPhotos: string[];
+        removePhotoIds: string[];
+    },
 ) {
     return request<Review>(`/reviews/${id}`, 'Could not update your review.', {
         method: 'PATCH',
-        body: { ownerId, rating, comment },
+        body: input,
     });
 }
 
-export function deleteReview(id: number, ownerId: number) {
+export function deleteReview(id: string, ownerId: number) {
     return request<void>(
         `/reviews/${id}?ownerId=${ownerId}`,
         'Could not delete your review.',

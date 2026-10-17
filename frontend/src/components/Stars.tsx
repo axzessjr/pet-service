@@ -68,6 +68,9 @@ interface StarInputProps {
     onChange: (value: number) => void;
     disabled?: boolean;
     describedBy?: string;
+    label?: string;
+    // Smaller stars for the optional aspect ratings.
+    compact?: boolean;
 }
 
 // A 1-5 radio group drawn as stars; arrow keys move between stars.
@@ -77,15 +80,19 @@ export function StarInput({
     onChange,
     disabled,
     describedBy,
+    label = 'Rating',
+    compact = false,
 }: StarInputProps) {
     return (
         <fieldset className="m-0 border-0 p-0" aria-describedby={describedBy}>
-            <legend className="font-semibold text-gray-900">Rating</legend>
+            <legend className={compact ? 'text-sm text-gray-800' : 'font-semibold text-gray-900'}>
+                {label}
+            </legend>
             <div className="mt-1 flex items-center gap-1">
                 {STAR_VALUES.map((star) => (
                     <label
                         key={star}
-                        className="cursor-pointer rounded p-1 text-2xl text-amber-500 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-teal-700 has-[:disabled]:cursor-not-allowed"
+                        className={`cursor-pointer rounded p-1 ${compact ? 'text-lg' : 'text-2xl'} text-amber-500 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-teal-700 has-[:disabled]:cursor-not-allowed`}
                     >
                         <input
                             type="radio"
@@ -110,7 +117,7 @@ export function StarInput({
                     </label>
                 ))}
                 <span className="ml-2 text-sm text-gray-700">
-                    {value ? RATING_WORDS[value] : 'Choose 1 to 5 stars'}
+                    {value ? RATING_WORDS[value] : compact ? 'Not rated' : 'Choose 1 to 5 stars'}
                 </span>
             </div>
         </fieldset>
