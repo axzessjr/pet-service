@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { resolve } from 'node:path';
 import { CatalogModule } from '../catalog/catalog.module';
+import { UPSTREAMS } from '../gateway/upstreams';
 import { PetProfileModule } from '../pet-profile/pet-profile.module';
 import { RecommendationService } from './recommendation.service';
 import { RecommendationController } from './recommendation.controller';
@@ -21,9 +22,7 @@ import { SavedRecommendationController } from './saved-recommendation.controller
                         __dirname,
                         '../../../proto/recommendation.proto',
                     ),
-                    url:
-                        process.env.RECOMMENDATION_GRPC_URL ??
-                        'localhost:50051',
+                    url: UPSTREAMS.recommender.url,
                 },
             },
         ]),

@@ -9,6 +9,7 @@ import {
 import { Readable } from 'node:stream';
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { CatalogService } from '../catalog/catalog.service';
+import { UPSTREAMS } from '../gateway/upstreams';
 import { PetProfileService } from '../pet-profile/pet-profile.service';
 
 function positiveInteger(value: unknown, name: string): number {
@@ -38,8 +39,7 @@ export const PHOTO_TIMEOUT_MS = 15_000;
 @Injectable()
 export class ReviewService {
     private readonly logger = new Logger(ReviewService.name);
-    private readonly baseUrl =
-        process.env.REVIEW_URL ?? 'http://localhost:3001';
+    private readonly baseUrl = UPSTREAMS.review.url;
 
     constructor(
         private readonly catalogService: CatalogService,

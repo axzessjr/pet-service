@@ -13,6 +13,7 @@ import {
     Query,
     StreamableFile,
 } from '@nestjs/common';
+import { Upstream } from '../gateway/upstreams';
 import { PHOTO_TIMEOUT_MS, ReviewService } from './review.service';
 
 // Review and photo ids are MongoDB ObjectIds. Checking the shape here keeps
@@ -24,6 +25,7 @@ function mongoId(value: string, name: string): string {
     return value;
 }
 
+@Upstream('review')
 @Controller('reviews')
 export class ReviewsController {
     constructor(private readonly reviews: ReviewService) {}
@@ -79,6 +81,7 @@ export class ReviewsController {
     }
 }
 
+@Upstream('review')
 @Controller('ratings')
 export class RatingsController {
     constructor(private readonly reviews: ReviewService) {}
