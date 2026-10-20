@@ -1,6 +1,10 @@
 import { Controller, Delete, Get, Post } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
+import { CatalogController } from '../catalog/catalog.controller';
+import { CatalogService } from '../catalog/catalog.service';
+import { RecommendationController } from '../recommendation/recommendation.controller';
+import { RecommendationService } from '../recommendation/recommendation.service';
 import { GatewayService, LOCAL_SERVICE } from './gateway.service';
 import { Upstream } from './upstreams';
 
@@ -63,5 +67,42 @@ describe('GatewayService', () => {
             'recommender',
             LOCAL_SERVICE,
         ]);
+    });
+});
+
+describe('GatewayService with the real controllers', () => {
+    it('routes the map endpoint to the recommender and catalog search locally', async () => {
+        const moduleRef = await Test.createTestingModule({
+            imports: [DiscoveryModule],
+            controllers: [RecommendationController, CatalogController],
+            providers: [
+                GatewayService,
+                CatalogService,
+                { provide: RecommendationService, useValue: {} },
+            ],
+        }).compile();
+        const routes = moduleRef.get(GatewayService).routes();
+        expect(routes).toEqual(
+            expect.arrayContaining([
+                {
+                    method: 'GET',
+                    path: '/recommendation/pets/:petId/map',
+                    service: 'recommender',
+                    protocol: 'grpc',
+                },
+                {
+                    method: 'GET',
+                    path: '/recommendation/pets/:petId',
+                    service: 'recommender',
+                    protocol: 'grpc',
+                },
+                {
+                    method: 'GET',
+                    path: '/catalog',
+                    service: LOCAL_SERVICE,
+                    protocol: 'in-process',
+                },
+            ]),
+        );
     });
 });

@@ -15,8 +15,18 @@ import { CatalogItem } from '../catalog/catalog.types';
 import { PetProfileService } from '../pet-profile/pet-profile.service';
 import { Pet } from '../pet-profile/pet-profile.types';
 import {
+    cutForZoom,
+    effectiveMaxPrice,
+    filterForMap,
+    MAP_LIMITS,
+    MapQuery,
+} from './map';
+import {
     ListRecommendationsResponse,
+    MapRecommendation,
+    MapRecommendations,
     PetRecommendations,
+    Recommendation,
     RecommendationRequest,
     RecommendationResponse,
     SavedRecommendation,
@@ -61,6 +71,62 @@ export class RecommendationService implements OnModuleInit {
         );
     }
 
+    private async loadPet(petId: number): Promise<Pet> {
+        if (!Number.isSafeInteger(petId) || petId <= 0 || petId > 2147483647) {
+            throw new BadRequestException('petId must be a positive integer');
+        }
+        const pet = await this.petProfileService.getPetById(petId);
+        if (!pet) {
+            throw new NotFoundException(`Pet ${petId} was not found`);
+        }
+        return pet;
+    }
+
+    private static toInput(
+        pet: Pet,
+        services: CatalogItem[],
+        limit: number,
+        overrides: { needs?: string[]; maxPrice?: number } = {},
+    ): RecommendationRequest {
+        return {
+            pet: {
+                species: pet.species,
+                needs: overrides.needs ?? pet.needs,
+                maxPrice: overrides.maxPrice ?? pet.maxPrice,
+            },
+            services: services.map(({ id, species, tags, price }) => ({
+                id,
+                species,
+                tags,
+                price,
+            })),
+            limit,
+        };
+    }
+
+    // proto3 omits empty repeated fields and zero values, so `matches` is
+    // undefined when nothing matched and ratings are missing when unreviewed.
+    private static join(
+        response: RecommendationResponse,
+        services: CatalogItem[],
+    ): Recommendation[] {
+        const byId = new Map(services.map((item) => [item.id, item]));
+        return (response.matches ?? []).flatMap((match) => {
+            const service = byId.get(match.serviceId);
+            return service
+                ? [
+                      {
+                          service,
+                          score: match.score ?? 0,
+                          matchedNeeds: match.matchedNeeds ?? [],
+                          averageRating: match.averageRating ?? 0,
+                          reviewCount: match.reviewCount ?? 0,
+                      },
+                  ]
+                : [];
+        });
+    }
+
     private async inputForPet(
         petId: number,
         limit: number,
@@ -69,34 +135,15 @@ export class RecommendationService implements OnModuleInit {
         catalog: CatalogItem[];
         input: RecommendationRequest;
     }> {
-        if (!Number.isSafeInteger(petId) || petId <= 0 || petId > 2147483647) {
-            throw new BadRequestException('petId must be a positive integer');
-        }
         if (!Number.isSafeInteger(limit) || limit <= 0 || limit > 100) {
             throw new BadRequestException('limit must be between 1 and 100');
         }
-        const pet = await this.petProfileService.getPetById(petId);
-        if (!pet) {
-            throw new NotFoundException(`Pet ${petId} was not found`);
-        }
+        const pet = await this.loadPet(petId);
         const catalog = this.catalogService.getCatalogItems();
         return {
             pet,
             catalog,
-            input: {
-                pet: {
-                    species: pet.species,
-                    needs: pet.needs,
-                    maxPrice: pet.maxPrice,
-                },
-                services: catalog.map(({ id, species, tags, price }) => ({
-                    id,
-                    species,
-                    tags,
-                    price,
-                })),
-                limit,
-            },
+            input: RecommendationService.toInput(pet, catalog, limit),
         };
     }
 
@@ -144,25 +191,80 @@ export class RecommendationService implements OnModuleInit {
     ): Promise<PetRecommendations> {
         const { pet, catalog, input } = await this.inputForPet(petId, limit);
         const response = await this.call(this.engine.recommend(input));
-        const byId = new Map(catalog.map((item) => [item.id, item]));
-        // proto3 omits empty repeated fields and zero values, so `matches` is
-        // undefined when nothing matched and ratings are missing when unreviewed.
         return {
             pet,
-            recommendations: (response.matches ?? []).flatMap((match) => {
-                const service = byId.get(match.serviceId);
-                return service
-                    ? [
-                          {
-                              service,
-                              score: match.score,
-                              matchedNeeds: match.matchedNeeds ?? [],
-                              averageRating: match.averageRating ?? 0,
-                              reviewCount: match.reviewCount ?? 0,
-                          },
-                      ]
-                    : [];
-            }),
+            recommendations: RecommendationService.join(response, catalog),
+        };
+    }
+
+    // Ranks only the services inside the visible map area that pass the
+    // search filters, then keeps all of them or just the best few depending
+    // on the zoom (see MAP_LIMITS).
+    async recommendForMap(
+        petId: number,
+        query: MapQuery,
+    ): Promise<MapRecommendations> {
+        const pet = await this.loadPet(petId);
+        const maxPrice = effectiveMaxPrice(pet.maxPrice, query.maxPrice);
+        const candidates = filterForMap(
+            this.catalogService.getCatalogItems(),
+            query,
+            maxPrice,
+        );
+
+        let ranked: MapRecommendation[] = [];
+        if (candidates.length > 0) {
+            const rank = (needs?: string[]) =>
+                this.call(
+                    this.engine.recommend(
+                        RecommendationService.toInput(
+                            pet,
+                            candidates,
+                            candidates.length,
+                            { needs, maxPrice },
+                        ),
+                    ),
+                );
+            // With no needs the engine returns every eligible service (right
+            // species and price) ordered by rating, each with its rating. That
+            // fills in the services the needs-based ranking leaves out.
+            const wantOthers = query.includeUnmatched && pet.needs.length > 0;
+            const [matched, others] = await Promise.all([
+                rank(),
+                wantOthers ? rank([]) : Promise.resolve({ matches: [] }),
+            ]);
+            const first = RecommendationService.join(matched, candidates);
+            const seen = new Set(first.map((item) => item.service.id));
+            ranked = [
+                ...first.map((item) => ({ ...item, matched: true })),
+                ...RecommendationService.join(others, candidates)
+                    .filter((item) => !seen.has(item.service.id))
+                    .map((item) => ({
+                        ...item,
+                        score: 0,
+                        matchedNeeds: [],
+                        matched: false,
+                    })),
+            ];
+        }
+
+        const { minRating } = query;
+        if (minRating !== undefined) {
+            ranked = ranked.filter((item) => item.averageRating >= minRating);
+        }
+        const { mode, recommendations } = cutForZoom(
+            ranked,
+            query.zoom,
+            query.limit,
+        );
+        return {
+            pet,
+            mode,
+            bounds: query.bounds,
+            zoom: query.zoom,
+            detailZoom: MAP_LIMITS.DETAIL_ZOOM,
+            total: ranked.length,
+            recommendations,
         };
     }
 

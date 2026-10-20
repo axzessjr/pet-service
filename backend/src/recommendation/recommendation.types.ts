@@ -14,6 +14,35 @@ export interface PetRecommendations {
     recommendations: Recommendation[];
 }
 
+export interface MapBounds {
+    minLat: number;
+    minLng: number;
+    maxLat: number;
+    maxLng: number;
+}
+
+// "detail": every ranked service in view. "top": only the best few, because
+// the map is zoomed out.
+export type MapMode = 'detail' | 'top';
+
+export interface MapRecommendation extends Recommendation {
+    // False for services that cover none of the pet's needs; they are only
+    // returned with includeUnmatched and always rank last, with score 0.
+    matched: boolean;
+}
+
+export interface MapRecommendations {
+    pet: Pet;
+    mode: MapMode;
+    bounds: MapBounds;
+    zoom: number;
+    // The zoom at which the map switches from "top" to "detail".
+    detailZoom: number;
+    // Services that fit the area and filters, before the top-N or limit cut.
+    total: number;
+    recommendations: MapRecommendation[];
+}
+
 export interface RecommendationRequest {
     pet: { species: string; needs: string[]; maxPrice: number };
     services: {

@@ -7,6 +7,7 @@ import {
     Query,
 } from '@nestjs/common';
 import { Upstream } from '../gateway/upstreams';
+import { parseMapQuery } from './map';
 import { RecommendationService } from './recommendation.service';
 
 @Upstream('recommender')
@@ -27,9 +28,19 @@ export class RecommendationController {
         if (!/^[1-9]\d*$/.test(limit) || Number(limit) > 100) {
             throw new BadRequestException('limit must be between 1 and 100');
         }
-        return this.recommendationService.recommendForPet(
+        return this.recommendationService.recommendForPet(petId, Number(limit));
+    }
+
+    // GET /recommendation/pets/1/map?minLat=&minLng=&maxLat=&maxLng=&zoom=15
+    // plus optional q, category, maxPrice, minRating, limit, includeUnmatched.
+    @Get('pets/:petId/map')
+    getMapForPet(
+        @Param('petId', ParseIntPipe) petId: number,
+        @Query() query: Record<string, unknown>,
+    ) {
+        return this.recommendationService.recommendForMap(
             petId,
-            Number(limit),
+            parseMapQuery(query),
         );
     }
 }
