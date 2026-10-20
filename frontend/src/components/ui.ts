@@ -40,6 +40,7 @@ export function categoryIcon(category: string): string {
         training: 'fa-graduation-cap',
         enrichment: 'fa-baseball',
         wellness: 'fa-heart-pulse',
+        veterinary: 'fa-stethoscope',
     };
     return icons[category.toLowerCase()] ?? 'fa-paw';
 }

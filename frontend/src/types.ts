@@ -1,3 +1,10 @@
+export type CatalogLocation = {
+    lat: number;
+    lng: number;
+    address: string;
+    district: string;
+};
+
 export type CatalogItem = {
     id: number;
     title: string;
@@ -7,6 +14,7 @@ export type CatalogItem = {
     species: string[];
     tags: string[];
     description: string;
+    location: CatalogLocation;
 };
 
 export type Pet = {
