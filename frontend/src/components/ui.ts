@@ -1,4 +1,4 @@
-import type { AspectKey } from '../types';
+import type { AspectKey, PetRecommendations } from '../types';
 
 // Shared Tailwind classes for form controls and buttons.
 export const controlClass =
@@ -45,6 +45,33 @@ export function categoryIcon(category: string): string {
     return icons[category.toLowerCase()] ?? 'fa-paw';
 }
 
+export const SERVICE_CATEGORIES = [
+    'Walking',
+    'Grooming',
+    'Sitting',
+    'Training',
+    'Enrichment',
+    'Wellness',
+    'Veterinary',
+];
+
+// Map pin and card colours; all keep white text readable (4.5:1 or better).
+export function categoryColor(category: string): string {
+    const colors: Record<string, string> = {
+        walking: '#0f766e',
+        grooming: '#a21caf',
+        sitting: '#1d4ed8',
+        training: '#b45309',
+        enrichment: '#15803d',
+        wellness: '#be123c',
+        veterinary: '#6d28d9',
+    };
+    return colors[category.toLowerCase()] ?? '#374151';
+}
+
+// For services that cover none of the pet's needs.
+export const UNMATCHED_COLOR = '#6b7280';
+
 // Cosine similarity from the recommender, 0 to 1.
 export function matchLabel(score: number): string {
     if (score >= 0.8) return 'Great match';
@@ -72,4 +99,26 @@ export function formatDay(value: string): string {
     return Number.isNaN(date.getTime())
         ? value
         : date.toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
+
+export type Recommendation = PetRecommendations['recommendations'][number];
+export type SortKey = 'match' | 'rating' | 'price';
+
+export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+    { key: 'match', label: 'Best match' },
+    { key: 'rating', label: 'Top rated' },
+    { key: 'price', label: 'Lowest price' },
+];
+
+export function sortRecommendations<T extends Recommendation>(
+    items: T[],
+    sort: SortKey,
+): T[] {
+    if (sort === 'match') return items;
+    return [...items].sort((a, b) =>
+        sort === 'price'
+            ? a.service.price - b.service.price
+            : b.averageRating - a.averageRating ||
+              b.reviewCount - a.reviewCount,
+    );
 }
