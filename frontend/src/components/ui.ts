@@ -23,6 +23,41 @@ export function speciesLabel(species: string[]): string {
     return `For ${species.map((value) => `${value}s`).join(' and ')}`;
 }
 
+export function readableTag(tag: string): string {
+    return tag.replaceAll('-', ' ');
+}
+
+export function speciesIcon(species: string): string {
+    const icons: Record<string, string> = { dog: 'fa-dog', cat: 'fa-cat' };
+    return icons[species.toLowerCase()] ?? 'fa-paw';
+}
+
+export function categoryIcon(category: string): string {
+    const icons: Record<string, string> = {
+        walking: 'fa-person-walking',
+        grooming: 'fa-scissors',
+        sitting: 'fa-house',
+        training: 'fa-graduation-cap',
+        enrichment: 'fa-baseball',
+        wellness: 'fa-heart-pulse',
+    };
+    return icons[category.toLowerCase()] ?? 'fa-paw';
+}
+
+// Cosine similarity from the recommender, 0 to 1.
+export function matchLabel(score: number): string {
+    if (score >= 0.8) return 'Great match';
+    if (score >= 0.5) return 'Good match';
+    return 'Partial match';
+}
+
+// A budget of 0 means the owner set no limit.
+export function budgetNote(price: number, maxPrice: number): string {
+    if (maxPrice <= 0) return '';
+    const left = maxPrice - price;
+    return left > 0 ? `$${left} under budget` : 'At budget';
+}
+
 export const ASPECT_LABELS: Record<AspectKey, string> = {
     quality: 'Quality of care',
     value: 'Value for money',
