@@ -94,6 +94,24 @@ The existing `GET /recommendation/pets/:petId` calculates live recommendations w
 
 The saved response contains `id`, `petId`, `limit`, `matches` (service IDs, scores, matched needs), `createdAt`, and `updatedAt`. A saved set is a snapshot. Reading it does not recalculate it; `PUT` does. Missing sets return HTTP 404. The API currently does not enforce user ownership, so these routes should be protected before exposing them to untrusted clients.
 
+### Map
+
+On **For my pet**, choose **Map** to see recommendations on an OpenStreetMap map (Leaflet), centred on Chulalongkorn University. Panning or zooming fetches recommendations for the visible area once the map has been still for 400 ms. The search box, category, maximum price, and rating filters narrow the same results, and the list beside the map always shows exactly the pins. The view, map position, and filters are kept in the URL.
+
+The map calls:
+
+```
+GET /recommendation/pets/:petId/map?minLat=13.72&minLng=100.51&maxLat=13.75&maxLng=100.55&zoom=15
+    [&q=groom&category=Grooming&maxPrice=40&minRating=4&limit=20&includeUnmatched=true]
+```
+
+1. Only catalog services inside the bounds that pass `q`, `category`, and `maxPrice` are sent to the recommender. `maxPrice` can lower the pet's budget but never raise it.
+2. Ratings come back from the recommender, so `minRating` is applied to the ranked results. Services with no reviews count as rating 0 here.
+3. At zoom 15 and closer (`MAP_LIMITS.DETAIL_ZOOM` in `backend/src/recommendation/map.ts`), every ranked service in view is returned, up to 50. Further out, only the top 10 are, and `mode` is `"top"` instead of `"detail"`. `total` is the count before that cut.
+4. `includeUnmatched=true` also returns in-view services of the right species and price that cover none of the pet's needs, last, with `score: 0` and `matched: false`. The map shows them as grey pins. The backend gets them, with their ratings, from a second `Recommend` call without needs, so the gRPC contract is unchanged.
+
+Bounds must be numbers with min below max and may span at most 2 degrees; `zoom` must be a whole number from 0 to 22. Invalid queries return HTTP 400, an unknown pet 404, and a recommender failure 503.
+
 ## Reviews
 
 Pawpal does not take bookings. Owners find a service in the catalog or in their recommendations, use it with the provider directly, then come back to review it. Each review is for one visit, so an owner can review the same service again after each visit, and edit or delete any of their reviews later.
@@ -161,7 +179,7 @@ If RabbitMQ is down, reviews are still saved and stay marked until it returns. M
 
 ## API and data
 
-- `GET /catalog` lists 18 mock services with species, category, care tags, and price.
+- `GET /catalog` lists 60 mock services with species, category, care tags, price, and a location near Chulalongkorn University. Add `?q=groom` (title, provider, description, category, tags, district, or address) and `?category=Grooming` to search it.
 - `GET /pet-profile/me` reads pets from the configured PostgreSQL database. Each pet has care needs and a maximum service price.
 - `GET /recommendation/pets/:petId` returns up to five services with matching need tags.
 - A pet without care needs receives the cheapest compatible services as a fallback.
