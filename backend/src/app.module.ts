@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { DatabaseModule } from './database/database.module';
 import { ReviewModule } from './review/review.module';
+import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { ReviewModule } from './review/review.module';
         AuthModule,
         UsersModule,
         ReviewModule,
+        GatewayModule,
     ],
     controllers: [AppController],
     providers: [AppService],

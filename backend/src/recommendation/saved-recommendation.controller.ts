@@ -12,6 +12,7 @@ import {
     Put,
     Query,
 } from '@nestjs/common';
+import { Upstream } from '../gateway/upstreams';
 import { RecommendationService } from './recommendation.service';
 
 function positiveInteger(
@@ -32,6 +33,7 @@ function positiveInteger(
     return value;
 }
 
+@Upstream('recommender')
 @Controller('recommendations')
 export class SavedRecommendationController {
     constructor(
