@@ -138,8 +138,11 @@ export class RecommendationService implements OnModuleInit {
         };
     }
 
-    async recommendForPet(petId: number): Promise<PetRecommendations> {
-        const { pet, catalog, input } = await this.inputForPet(petId, 5);
+    async recommendForPet(
+        petId: number,
+        limit = 5,
+    ): Promise<PetRecommendations> {
+        const { pet, catalog, input } = await this.inputForPet(petId, limit);
         const response = await this.call(this.engine.recommend(input));
         const byId = new Map(catalog.map((item) => [item.id, item]));
         // proto3 omits empty repeated fields and zero values, so `matches` is
