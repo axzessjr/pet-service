@@ -20,6 +20,7 @@ import {
     filterForMap,
     MAP_LIMITS,
     MapQuery,
+    overBudget,
 } from './map';
 import {
     ListRecommendationsResponse,
@@ -206,11 +207,8 @@ export class RecommendationService implements OnModuleInit {
     ): Promise<MapRecommendations> {
         const pet = await this.loadPet(petId);
         const maxPrice = effectiveMaxPrice(pet.maxPrice, query.maxPrice);
-        const candidates = filterForMap(
-            this.catalogService.getCatalogItems(),
-            query,
-            maxPrice,
-        );
+        const items = this.catalogService.getCatalogItems();
+        const candidates = filterForMap(items, query, maxPrice);
 
         let ranked: MapRecommendation[] = [];
         if (candidates.length > 0) {
@@ -248,6 +246,13 @@ export class RecommendationService implements OnModuleInit {
             ];
         }
 
+        // Checked before minRating, so a rating filter that empties the list
+        // is not blamed on the budget.
+        const hidden =
+            ranked.length === 0
+                ? overBudget(items, query, maxPrice, pet.species)
+                : undefined;
+
         const { minRating } = query;
         if (minRating !== undefined) {
             ranked = ranked.filter((item) => item.averageRating >= minRating);
@@ -265,6 +270,7 @@ export class RecommendationService implements OnModuleInit {
             detailZoom: MAP_LIMITS.DETAIL_ZOOM,
             total: ranked.length,
             recommendations,
+            ...(hidden && { overBudget: hidden }),
         };
     }
 

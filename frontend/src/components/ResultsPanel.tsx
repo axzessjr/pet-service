@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import type { MapRecommendation, MapRecommendations, Pet } from '../types';
 import { EmptyState } from './EmptyState';
 import { RatingSummary } from './Stars';
@@ -209,7 +210,11 @@ export function ResultsPanel({
 
                 {!data && !error && <RowsSkeleton count={collapsed ? 1 : 5} />}
 
-                {data && !error && recommendations.length === 0 && (
+                {data && !error && recommendations.length === 0 && data.overBudget && (
+                    <OverBudgetState pet={pet} overBudget={data.overBudget} hasFilters={hasFilters} onClearFilters={onClearFilters} />
+                )}
+
+                {data && !error && recommendations.length === 0 && !data.overBudget && (
                     <EmptyState
                         compact
                         icon="fa-map-location-dot"
@@ -297,6 +302,48 @@ export function ResultsPanel({
                 )}
             </div>
         </section>
+    );
+}
+
+// Nothing fits only because of the price limit, so zooming out would not
+// help: say what things cost and point to the budget instead.
+function OverBudgetState({
+    pet,
+    overBudget,
+    hasFilters,
+    onClearFilters,
+}: {
+    pet: Pet;
+    overBudget: NonNullable<MapRecommendations['overBudget']>;
+    hasFilters: boolean;
+    onClearFilters: () => void;
+}) {
+    const { count, cheapestPrice, maxPrice } = overBudget;
+    // A price filter lower than the pet's budget is what hid them.
+    const byFilter = pet.maxPrice <= 0 || maxPrice < pet.maxPrice;
+    return (
+        <EmptyState
+            compact
+            icon="fa-tag"
+            title={`Nothing here under ${formatPrice(maxPrice)}`}
+            body={`${count} ${count === 1 ? 'service' : 'services'} for ${pet.name} in this area ${count === 1 ? 'costs' : 'cost'} more. The cheapest is ${formatPrice(cheapestPrice)}.`}
+            action={
+                <div className="flex flex-wrap justify-center gap-2">
+                    {!byFilter && (
+                        <Link to="/profile" className={`${primaryButtonClass} inline-flex items-center`}>
+                            <i aria-hidden="true" className="fa-solid fa-pen mr-2"></i>
+                            Edit budget
+                            <span className="sr-only"> for {pet.name}</span>
+                        </Link>
+                    )}
+                    {hasFilters && (
+                        <button type="button" onClick={onClearFilters} className={secondaryButtonClass}>
+                            Clear filters
+                        </button>
+                    )}
+                </div>
+            }
+        />
     );
 }
 

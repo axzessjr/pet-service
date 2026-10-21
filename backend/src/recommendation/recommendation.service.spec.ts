@@ -397,6 +397,54 @@ describe('RecommendationService.recommendForMap', () => {
         expect(result).toMatchObject({ total: 0, recommendations: [] });
     });
 
+    it('reports services hidden only by the budget', async () => {
+        (profile.getPetById as jest.Mock).mockResolvedValue({
+            ...dog,
+            maxPrice: 55,
+        });
+        const result = await service.recommendForMap(2, {
+            bounds: chula,
+            zoom: 15,
+            includeUnmatched: true,
+        });
+        const dogPrices = catalog
+            .getCatalogItems()
+            .filter(
+                (item) =>
+                    item.species.includes('dog') &&
+                    item.location.lat >= chula.minLat &&
+                    item.location.lat <= chula.maxLat &&
+                    item.location.lng >= chula.minLng &&
+                    item.location.lng <= chula.maxLng,
+            )
+            .map((item) => item.price);
+        expect(result.total).toBe(0);
+        expect(result.overBudget).toEqual({
+            count: dogPrices.length,
+            cheapestPrice: Math.min(...dogPrices),
+            maxPrice: 55,
+        });
+    });
+
+    it('leaves out overBudget when something fits', async () => {
+        const result = await service.recommendForMap(2, {
+            bounds: chula,
+            zoom: 15,
+            includeUnmatched: true,
+        });
+        expect(result.total).toBeGreaterThan(0);
+        expect(result.overBudget).toBeUndefined();
+    });
+
+    it('does not blame the budget when nothing is in view', async () => {
+        const result = await service.recommendForMap(2, {
+            bounds: { minLat: 1, minLng: 1, maxLat: 2, maxLng: 2 },
+            zoom: 15,
+            includeUnmatched: true,
+        });
+        expect(result.overBudget).toBeUndefined();
+    });
+
     it('adds unmatched services last with score 0 when asked', async () => {
         const result = await service.recommendForMap(2, {
             bounds: chula,

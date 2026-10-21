@@ -41,6 +41,16 @@ export interface MapRecommendations {
     // Services that fit the area and filters, before the top-N or limit cut.
     total: number;
     recommendations: MapRecommendation[];
+    // Only when nothing fits and the price limit is why.
+    overBudget?: OverBudget;
+}
+
+export interface OverBudget {
+    // Services in the area that fit the pet and filters but cost more.
+    count: number;
+    cheapestPrice: number;
+    // The limit that hid them: the pet's budget or a lower maxPrice filter.
+    maxPrice: number;
 }
 
 export interface RecommendationRequest {

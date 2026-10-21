@@ -118,4 +118,7 @@ export type MapRecommendations = {
     // Matches in the area before the top-N cut.
     total: number;
     recommendations: MapRecommendation[];
+    // Only when nothing fits and the price limit is why: how many services
+    // in the area cost more, the cheapest of them, and the limit applied.
+    overBudget?: { count: number; cheapestPrice: number; maxPrice: number };
 };

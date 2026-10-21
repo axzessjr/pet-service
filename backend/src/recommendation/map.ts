@@ -1,7 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
 import { matchesCategory, matchesText } from '../catalog/catalog.service';
 import { CatalogItem } from '../catalog/catalog.types';
-import { MapBounds, MapMode, MapRecommendation } from './recommendation.types';
+import {
+    MapBounds,
+    MapMode,
+    MapRecommendation,
+    OverBudget,
+} from './recommendation.types';
 
 // How the map decides what to show. At DETAIL_ZOOM and closer, every ranked
 // service in view is returned (up to DETAIL_LIMIT). Further out, only the
@@ -175,6 +180,32 @@ export function filterForMap(
                 matchesCategory(item, query.category)) &&
             (maxPrice <= 0 || item.price <= maxPrice),
     );
+}
+
+// The services that would show but for the price limit: in view, passing the
+// search filters, and for the pet's species. Lets the page say when the
+// budget alone hides everything, instead of suggesting a wider search.
+export function overBudget(
+    items: CatalogItem[],
+    query: Pick<MapQuery, 'bounds' | 'q' | 'category'>,
+    maxPrice: number,
+    species: string,
+): OverBudget | undefined {
+    if (maxPrice <= 0) return undefined;
+    const wanted = species.trim().toLowerCase();
+    const prices = filterForMap(items, query, 0)
+        .filter(
+            (item) =>
+                item.price > maxPrice &&
+                item.species.some((value) => value.toLowerCase() === wanted),
+        )
+        .map((item) => item.price);
+    if (prices.length === 0) return undefined;
+    return {
+        count: prices.length,
+        cheapestPrice: Math.min(...prices),
+        maxPrice,
+    };
 }
 
 export function mapMode(zoom: number): MapMode {
