@@ -9,7 +9,7 @@ The **For my pet** page calls `GET /recommendation/pets/:petId` on the NestJS ba
 3. Use scikit-learn's `NearestNeighbors` with cosine distance to compare the pet vector with **every** eligible service vector (`n_neighbors` equals the number of eligible services). The returned score is `1 - distance`, so an exact tag match scores `1.0`.
 4. Return up to five services with at least one matching need. When similarity is tied, the higher average rating wins, then the lower price, then the service ID. A service with no reviews counts as 3.0, the middle of the 1-5 scale, so it is not placed below a poorly rated service.
 
-For example, Max needs `exercise` and `social` and has a $45 budget. **Neighborhood Dog Walk** supports dogs, costs $15, and has both tags, so it scores `1.0`. Cat-only services and services above $45 are filtered out before ranking.
+For example, Max needs `exercise` and `social` and has a ฿1,600 budget. **Neighborhood Dog Walk** supports dogs, costs ฿550, and has both tags, so it scores `1.0`. Cat-only services and services above ฿1,600 are filtered out before ranking.
 
 In practical terms, this is tag matching and cosine-similarity ranking implemented with the `NearestNeighbors` API. It retrieves all eligible services before applying the result limit, and it does not train on bookings or reviews. Scores measure tag similarity, not star ratings or predicted probabilities; ratings only break ties, so a well-rated service never outranks a closer tag match. If a pet has no needs, the service returns compatible services ordered by rating, then price.
 

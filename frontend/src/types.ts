@@ -1,3 +1,10 @@
+export type CatalogLocation = {
+    lat: number;
+    lng: number;
+    address: string;
+    district: string;
+};
+
 export type CatalogItem = {
     id: number;
     title: string;
@@ -7,6 +14,7 @@ export type CatalogItem = {
     species: string[];
     tags: string[];
     description: string;
+    location: CatalogLocation;
 };
 
 export type Pet = {
@@ -83,4 +91,34 @@ export type SavedRecommendation = {
     matches: RecommendationMatch[];
     createdAt: string;
     updatedAt: string;
+};
+
+export type MapBounds = {
+    minLat: number;
+    minLng: number;
+    maxLat: number;
+    maxLng: number;
+};
+
+// "detail": every ranked service in view. "top": only the best few, because
+// the map is zoomed out past `detailZoom`.
+export type MapMode = 'detail' | 'top';
+
+export type MapRecommendation = PetRecommendations['recommendations'][number] & {
+    // False for nearby services that cover none of the pet's needs.
+    matched: boolean;
+};
+
+export type MapRecommendations = {
+    pet: Pet;
+    mode: MapMode;
+    bounds: MapBounds;
+    zoom: number;
+    detailZoom: number;
+    // Matches in the area before the top-N cut.
+    total: number;
+    recommendations: MapRecommendation[];
+    // Only when nothing fits and the price limit is why: how many services
+    // in the area cost more, the cheapest of them, and the limit applied.
+    overBudget?: { count: number; cheapestPrice: number; maxPrice: number };
 };

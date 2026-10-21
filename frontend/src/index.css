@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+    /* For rows you swipe sideways, such as the category chips on phones. */
+    .scrollbar-none {
+        scrollbar-width: none;
+    }
+    .scrollbar-none::-webkit-scrollbar {
+        display: none;
+    }
+}
+
 /* We deleted all the dark mode code that Vite generated! */
 body {
     background-color: #ffffff; /* pure white background */

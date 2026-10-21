@@ -6,6 +6,7 @@ import { StarInput } from './Stars';
 import {
     ASPECT_LABELS,
     controlClass,
+    formatPrice,
     primaryButtonClass,
     secondaryButtonClass,
     speciesLabel,
@@ -255,7 +256,7 @@ export function ReviewForm({
                     </select>
                     {service && (
                         <p id={id('service-info')} className="mb-0 mt-1 text-sm text-gray-600">
-                            {speciesLabel(service.species)} · ${service.price}
+                            {speciesLabel(service.species)} · {formatPrice(service.price)}
                         </p>
                     )}
                 </div>

@@ -57,9 +57,9 @@ To run the review service outside Docker, add `RABBITMQ_URL` for a broker to `re
 
 ## Recommendations
 
-Open **For my pet** at <http://localhost:5173/recommendations> and select a pet. NestJS loads that pet and the catalog, sends both to the Python service over gRPC, then adds catalog details to the ranked matches it receives.
+Open **For my pet** at <http://localhost:5173/recommendations>. The page is a map of the services that fit your pet (see [Map](#map)); if you have more than one pet, choose one at the top. For the area on screen, NestJS loads the pet and the catalog services there, sends them to the Python service over gRPC, then adds catalog details to the ranked matches it receives.
 
-On that page, use **Generate and save set** to create a snapshot for the selected pet. The **Saved recommendation sets** section lists that pet's sets. Select a set to see its ranked services, change the service limit and choose **Recalculate set** to update it using current pet and catalog data, or choose **Delete set** and confirm to remove it. Switching pets shows that pet's saved sets.
+Choose **Saved lists** to open the selected pet's saved sets. **Save snapshot** saves the pet's top 10 matches, ranked across the whole catalog rather than only the area on the map. Open a set to see its ranked services, choose **Update with latest** to recalculate it from the current pet and catalog data, or choose **Delete** and confirm to remove it. Switching pets shows that pet's saved sets.
 
 **What it uses to find services:**
 
@@ -72,13 +72,13 @@ For example, a pet need of `exercise` matches a service tag of `exercise`; it do
 
 ### Worked example
 
-Suppose a dog needs `exercise` and `social` care and has a $45 budget. After filtering by species and price, consider these two catalog services. Using the tag order `[exercise, social, outdoors]`, each `1` means the tag is present and each `0` means it is absent:
+Suppose a dog needs `exercise` and `social` care and has a ฿1,600 budget. After filtering by species and price, consider these two catalog services. Using the tag order `[exercise, social, outdoors]`, each `1` means the tag is present and each `0` means it is absent:
 
 | Pet or service | Needs or tags | Vector | Score |
 | --- | --- | --- | ---: |
 | Pet | `exercise`, `social` | `[1, 1, 0]` | Search input |
-| Neighborhood Dog Walk (`101`, $15) | `exercise`, `social` | `[1, 1, 0]` | `1.0` |
-| Active Dog Adventure (`104`, $38) | `exercise`, `social`, `outdoors` | `[1, 1, 1]` | `0.8165` |
+| Neighborhood Dog Walk (`101`, ฿550) | `exercise`, `social` | `[1, 1, 0]` | `1.0` |
+| Active Dog Adventure (`104`, ฿1,350) | `exercise`, `social`, `outdoors` | `[1, 1, 1]` | `0.8165` |
 
 The code gives the two service vectors to scikit-learn's `NearestNeighbors`, then searches with the pet vector. With cosine distance, Dog Walk is an exact match (`distance = 0`, so `score = 1 - 0 = 1.0`). Adventure has one extra tag (`distance ≈ 0.1835`, so `score ≈ 0.8165`). Dog Walk ranks first. The code asks for every eligible service, then keeps the highest-scoring results. Review ratings only break ties, so they never lift a service above a closer tag match. See the [ranking details](recommender/README.md) for the full algorithm.
 
@@ -93,6 +93,28 @@ The existing `GET /recommendation/pets/:petId` calculates live recommendations w
 | `DELETE` | `/recommendations/:id` | Delete a set; returns HTTP 204. |
 
 The saved response contains `id`, `petId`, `limit`, `matches` (service IDs, scores, matched needs), `createdAt`, and `updatedAt`. A saved set is a snapshot. Reading it does not recalculate it; `PUT` does. Missing sets return HTTP 404. The API currently does not enforce user ownership, so these routes should be protected before exposing them to untrusted clients.
+
+### Map
+
+**For my pet** shows recommendations on an OpenStreetMap map (Leaflet), centred on Chulalongkorn University. Panning or zooming fetches recommendations for the visible area once the map has been still for 400 ms. The search box, the category chips, and the maximum price and rating filters (under **Filters**) narrow the same results. The chips only offer categories that have a service for the pet's species, and they double as the legend for the pin colours.
+
+The map is held to the area with services: every service and Chula, plus about 1 km. It can't be dragged off that area or zoomed out past the point where all of it is in view, and a link to a place outside it opens on the services instead. The area comes from the catalog's locations, so it grows with the catalog.
+
+On wide screens the results are listed to the right of the map; on phones they are in a sheet over its lower edge, which shows the best match until you choose **See all**. The list always shows exactly the pins. Choose a row or a pin to open that service's details, with previous and next buttons to step through the results; choose **All results**, press Escape, or select an empty part of the map to go back. The map position and filters are kept in the URL.
+
+The map calls:
+
+```
+GET /recommendation/pets/:petId/map?minLat=13.72&minLng=100.51&maxLat=13.75&maxLng=100.55&zoom=15
+    [&q=groom&category=Grooming&maxPrice=40&minRating=4&limit=20&includeUnmatched=true]
+```
+
+1. Only catalog services inside the bounds that pass `q`, `category`, and `maxPrice` are sent to the recommender. `maxPrice` can lower the pet's budget but never raise it.
+2. Ratings come back from the recommender, so `minRating` is applied to the ranked results. Services with no reviews count as rating 0 here.
+3. At zoom 15 and closer (`MAP_LIMITS.DETAIL_ZOOM` in `backend/src/recommendation/map.ts`), every ranked service in view is returned, up to 50. Further out, only the top 10 are, and `mode` is `"top"` instead of `"detail"`. `total` is the count before that cut.
+4. `includeUnmatched=true` also returns in-view services of the right species and price that cover none of the pet's needs, last, with `score: 0` and `matched: false`. The map shows them as grey pins. The backend gets them, with their ratings, from a second `Recommend` call without needs, so the gRPC contract is unchanged.
+
+Bounds must be numbers with min below max and may span at most 2 degrees; `zoom` must be a whole number from 0 to 22. Invalid queries return HTTP 400, an unknown pet 404, and a recommender failure 503.
 
 ## Reviews
 
@@ -161,7 +183,7 @@ If RabbitMQ is down, reviews are still saved and stay marked until it returns. M
 
 ## API and data
 
-- `GET /catalog` lists 18 mock services with species, category, care tags, and price.
+- `GET /catalog` lists 60 mock services with species, category, care tags, price, and a location near Chulalongkorn University. Add `?q=groom` (title, provider, description, category, tags, district, or address) and `?category=Grooming` to search it.
 - `GET /pet-profile/me` reads pets from the configured PostgreSQL database. Each pet has care needs and a maximum service price.
 - `GET /recommendation/pets/:petId` returns up to five services with matching need tags.
 - A pet without care needs receives the cheapest compatible services as a fallback.

@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CatalogItem, Pet, SavedRecommendation } from '../types';
 import {
     dangerButtonClass,
     dangerTextButtonClass,
+    formatPrice,
+    primaryButtonClass,
     readableTag,
     secondaryButtonClass,
 } from './ui';
@@ -25,11 +27,14 @@ interface SavedRecommendationsProps {
     pet: Pet;
     // Bumped by the page after it saves a list, to reload and open the newest.
     version: number;
+    // Called when a list is updated or deleted, so older news can go.
+    onAction?: () => void;
 }
 
 export function SavedRecommendations({
     pet,
     version,
+    onAction,
 }: SavedRecommendationsProps) {
     const [sets, setSets] = useState<SavedRecommendation[]>([]);
     const [catalog, setCatalog] = useState<CatalogItem[]>([]);
@@ -124,6 +129,7 @@ export function SavedRecommendations({
     async function refreshSet(set: SavedRecommendation) {
         setBusy({ id: set.id, action: 'update' });
         setMessage(null);
+        onAction?.();
         try {
             const response = await fetch(`/api/recommendations/${set.id}`, {
                 method: 'PUT',
@@ -153,6 +159,7 @@ export function SavedRecommendations({
     async function deleteSet(set: SavedRecommendation) {
         setBusy({ id: set.id, action: 'delete' });
         setMessage(null);
+        onAction?.();
         try {
             const response = await fetch(`/api/recommendations/${set.id}`, {
                 method: 'DELETE',
@@ -176,20 +183,7 @@ export function SavedRecommendations({
         catalogById.get(serviceId)?.title ?? `Service #${serviceId}`;
 
     return (
-        <section
-            className="mt-12 border-t border-gray-200 pt-8"
-            aria-labelledby="saved-heading"
-            aria-busy={loading}
-        >
-            <h3 id="saved-heading" className="m-0 text-xl font-bold text-gray-900">
-                <i aria-hidden="true" className="fa-regular fa-bookmark mr-2 text-teal-700"></i>
-                Saved lists for {pet.name}
-            </h3>
-            <p className="mb-4 mt-1 text-gray-600">
-                Keep a shortlist to compare later. Update it any time to use{' '}
-                {pet.name}’s current needs and the latest services.
-            </p>
-
+        <div aria-busy={loading}>
             {message && (
                 <p
                     role={message.kind === 'error' ? 'alert' : 'status'}
@@ -224,9 +218,9 @@ export function SavedRecommendations({
             )}
 
             {!loading && !listError && sets.length === 0 && (
-                <p className="rounded-xl border border-dashed border-gray-300 p-4 text-gray-600">
-                    No saved lists yet. Choose <strong>Save this list</strong>{' '}
-                    above to keep these picks.
+                <p className="m-0 rounded-xl border border-dashed border-gray-300 p-4 text-gray-600">
+                    No saved lists yet. Save a snapshot above to compare{' '}
+                    {pet.name}’s picks later.
                 </p>
             )}
 
@@ -328,7 +322,7 @@ export function SavedRecommendations({
                                                                 </p>
                                                             </div>
                                                             {service && (
-                                                                <strong className="shrink-0 text-gray-900">${service.price}</strong>
+                                                                <strong className="shrink-0 text-gray-900">{formatPrice(service.price)}</strong>
                                                             )}
                                                         </li>
                                                     );
@@ -395,6 +389,120 @@ export function SavedRecommendations({
                     })}
                 </ul>
             )}
-        </section>
+        </div>
+    );
+}
+
+// How many matches a new snapshot keeps.
+const SNAPSHOT_SIZE = 10;
+
+interface SavedListsDrawerProps {
+    pet: Pet;
+    onClose: () => void;
+}
+
+// A panel from the right edge. Mount it to open it; it calls onClose on
+// Escape, the close button, or a click on the backdrop.
+export function SavedListsDrawer({ pet, onClose }: SavedListsDrawerProps) {
+    const dialogRef = useRef<HTMLDialogElement>(null);
+    const [version, setVersion] = useState(0);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState<{
+        kind: 'success' | 'error';
+        text: string;
+    } | null>(null);
+
+    useEffect(() => {
+        dialogRef.current?.showModal();
+    }, []);
+
+    async function saveSnapshot() {
+        setSaving(true);
+        setMessage(null);
+        try {
+            const response = await fetch('/api/recommendations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ petId: pet.id, limit: SNAPSHOT_SIZE }),
+            });
+            if (!response.ok) throw new Error();
+            setVersion((value) => value + 1);
+            setMessage({ kind: 'success', text: 'Saved. It’s open below.' });
+        } catch {
+            setMessage({
+                kind: 'error',
+                text: 'Could not save a snapshot. Please try again.',
+            });
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <dialog
+            ref={dialogRef}
+            onClose={onClose}
+            onClick={(event) => {
+                if (event.target === dialogRef.current) dialogRef.current.close();
+            }}
+            aria-labelledby="saved-lists-title"
+            className="m-0 ml-auto h-full max-h-none w-full max-w-md border-0 p-0 shadow-xl backdrop:bg-black/40"
+        >
+            <div className="flex h-full flex-col">
+                <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 p-5">
+                    <div>
+                        <h3 id="saved-lists-title" className="m-0 text-xl font-bold text-gray-900">
+                            Saved lists for {pet.name}
+                        </h3>
+                        <p className="m-0 mt-1 text-sm text-gray-600">
+                            Snapshots to compare later. Update one any time to
+                            use {pet.name}’s current needs and the latest services.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => dialogRef.current?.close()}
+                        aria-label="Close saved lists"
+                        className="min-h-11 min-w-11 shrink-0 rounded-lg border-0 bg-transparent text-xl text-gray-600 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700"
+                    >
+                        <i aria-hidden="true" className="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+                    <div className="rounded-xl border border-teal-100 bg-teal-50 p-4">
+                        <p className="m-0 font-semibold text-gray-900">
+                            Save {pet.name}’s top {SNAPSHOT_SIZE} matches
+                        </p>
+                        <p className="m-0 mt-1 text-sm text-gray-700">
+                            Ranked across all services, not just the area on the map.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={saveSnapshot}
+                            disabled={saving}
+                            className={`${primaryButtonClass} mt-3`}
+                        >
+                            <i aria-hidden="true" className="fa-regular fa-bookmark mr-2"></i>
+                            {saving ? 'Saving...' : 'Save snapshot'}
+                        </button>
+                        {message && (
+                            <p
+                                role={message.kind === 'error' ? 'alert' : 'status'}
+                                className={`m-0 mt-3 text-sm font-medium ${message.kind === 'error' ? 'text-red-800' : 'text-green-800'}`}
+                            >
+                                {message.text}
+                            </p>
+                        )}
+                    </div>
+
+                    <SavedRecommendations
+                        pet={pet}
+                        version={version}
+                        onAction={() => setMessage(null)}
+                    />
+                </div>
+            </div>
+        </dialog>
     );
 }
