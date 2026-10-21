@@ -21,12 +21,12 @@ import {
 } from '../mapApi';
 import { categoryColor, categoryIcon, formatPrice, matchLabel, UNMATCHED_COLOR } from './ui';
 
-// OpenStreetMap tiles, toned down so the coloured pins stand out.
+// OpenStreetMap tiles, slightly softened so the coloured pins still stand out.
 const TILES = {
     url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution:
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    className: 'saturate-[.35] brightness-105',
+    className: 'saturate-[.8]',
 };
 
 const CAMPUS_ICON = L.divIcon({
