@@ -19,7 +19,7 @@ import {
     MIN_ZOOM,
     type Viewport,
 } from '../mapApi';
-import { categoryColor, categoryIcon, matchLabel, UNMATCHED_COLOR } from './ui';
+import { categoryColor, categoryIcon, formatPrice, matchLabel, UNMATCHED_COLOR } from './ui';
 
 // OpenStreetMap tiles, toned down so the coloured pins stand out.
 const TILES = {
@@ -441,7 +441,7 @@ function ServicePin({ item, rank, state, best, onHover, onSelect }: ServicePinPr
         <Marker
             position={[service.location.lat, service.location.lng]}
             icon={icon}
-            title={`${rank !== undefined ? `${rank}. ` : ''}${service.title}, $${service.price}, ${summary}`}
+            title={`${rank !== undefined ? `${rank}. ` : ''}${service.title}, ${formatPrice(service.price)}, ${summary}`}
             // The open pin, then the hovered one, then better ranks draw on
             // top where pins overlap.
             zIndexOffset={

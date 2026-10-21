@@ -26,7 +26,7 @@ describe('RecommendationService', () => {
         name: 'Luna',
         species: 'cat',
         needs: ['coat-care', 'low-stress'],
-        maxPrice: 50,
+        maxPrice: 1750,
     };
     const profile = {
         getPetById: jest.fn(),
@@ -72,14 +72,14 @@ describe('RecommendationService', () => {
         expect(request.pet).toEqual({
             species: 'cat',
             needs: ['coat-care', 'low-stress'],
-            maxPrice: 50,
+            maxPrice: 1750,
         });
         expect(request.limit).toBe(5);
         expect(request.services.find((item) => item.id === 102)).toEqual({
             id: 102,
             species: ['cat'],
             tags: ['coat-care', 'low-stress'],
-            price: 45,
+            price: 1600,
         });
         expect(result.recommendations[0].service.title).toBe(
             'Gentle Cat Grooming',
@@ -241,7 +241,7 @@ describe('RecommendationService.recommendForMap', () => {
         name: 'Rex',
         species: 'dog',
         needs: ['exercise', 'social'],
-        maxPrice: 50,
+        maxPrice: 1750,
     };
     const profile = {
         getPetById: jest.fn(),
@@ -351,26 +351,26 @@ describe('RecommendationService.recommendForMap', () => {
             zoom: 15,
             q: 'walk',
             category: 'Walking',
-            maxPrice: 20,
+            maxPrice: 700,
             includeUnmatched: false,
         });
         const request = sent();
         expect(request.services.length).toBeGreaterThan(0);
         for (const { id } of request.services) {
             expect(byId.get(id)).toMatchObject({ category: 'Walking' });
-            expect(byId.get(id)?.price).toBeLessThanOrEqual(20);
+            expect(byId.get(id)?.price).toBeLessThanOrEqual(700);
         }
-        expect(request.pet.maxPrice).toBe(20);
+        expect(request.pet.maxPrice).toBe(700);
     });
 
     it('never widens the pet budget', async () => {
         await service.recommendForMap(2, {
             bounds: chula,
             zoom: 15,
-            maxPrice: 500,
+            maxPrice: 5000,
             includeUnmatched: false,
         });
-        expect(sent().pet.maxPrice).toBe(50);
+        expect(sent().pet.maxPrice).toBe(1750);
     });
 
     it('filters by minimum rating after ranking', async () => {

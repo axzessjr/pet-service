@@ -95,11 +95,16 @@ export function directionsUrl(location: { lat: number; lng: number }): string {
     return `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}`;
 }
 
+// Prices are in Thai baht, e.g. "฿1,250".
+export function formatPrice(amount: number): string {
+    return `฿${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+}
+
 // A budget of 0 means the owner set no limit.
 export function budgetNote(price: number, maxPrice: number): string {
     if (maxPrice <= 0) return '';
     const left = maxPrice - price;
-    return left > 0 ? `$${left} under budget` : 'At budget';
+    return left > 0 ? `${formatPrice(left)} under budget` : 'At budget';
 }
 
 export const ASPECT_LABELS: Record<AspectKey, string> = {

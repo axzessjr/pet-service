@@ -7,6 +7,7 @@ import {
     categoryColor,
     categoryIcon,
     directionsUrl,
+    formatPrice,
     matchLabel,
     matchTone,
     primaryButtonClass,
@@ -331,7 +332,7 @@ function ServiceRow({ item, pet, rank, best, hovered, onHover, onSelect }: Servi
                             {rank !== undefined && <span className="sr-only">Rank {rank}: </span>}
                             {service.title}
                         </span>
-                        <span className="shrink-0 font-bold text-gray-900">${service.price}</span>
+                        <span className="shrink-0 font-bold text-gray-900">{formatPrice(service.price)}</span>
                     </span>
                     <span className="block text-sm text-gray-600">
                         {service.category} · {service.location.district}
@@ -507,7 +508,7 @@ function ServiceDetail({
                     <div className="rounded-xl bg-gray-50 p-3">
                         <dt className="text-xs font-semibold uppercase tracking-wide text-gray-600">Price</dt>
                         <dd className="m-0 mt-0.5">
-                            <span className="text-lg font-bold text-gray-900">${service.price}</span>
+                            <span className="text-lg font-bold text-gray-900">{formatPrice(service.price)}</span>
                             {budget && <span className="block text-xs font-medium text-green-800">{budget}</span>}
                         </dd>
                     </div>

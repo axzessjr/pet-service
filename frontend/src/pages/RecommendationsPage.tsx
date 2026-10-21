@@ -6,6 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { SavedListsDrawer } from '../components/SavedRecommendations';
 import { ServiceReviewsDialog } from '../components/ServiceReviewsDialog';
 import {
+    formatPrice,
     mapFrameHeightClass,
     primaryButtonClass,
     readableTag,
@@ -211,7 +212,7 @@ function NeedsSummary({ pet }: { pet: Pet }) {
                 <span aria-hidden="true">·</span>{' '}
                 {pet.maxPrice > 0 ? (
                     <>
-                        Budget up to <strong className="font-semibold text-gray-900">${pet.maxPrice}</strong>
+                        Budget up to <strong className="font-semibold text-gray-900">{formatPrice(pet.maxPrice)}</strong>
                     </>
                 ) : (
                     'Any budget'

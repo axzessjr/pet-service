@@ -72,13 +72,13 @@ For example, a pet need of `exercise` matches a service tag of `exercise`; it do
 
 ### Worked example
 
-Suppose a dog needs `exercise` and `social` care and has a $45 budget. After filtering by species and price, consider these two catalog services. Using the tag order `[exercise, social, outdoors]`, each `1` means the tag is present and each `0` means it is absent:
+Suppose a dog needs `exercise` and `social` care and has a ฿1,600 budget. After filtering by species and price, consider these two catalog services. Using the tag order `[exercise, social, outdoors]`, each `1` means the tag is present and each `0` means it is absent:
 
 | Pet or service | Needs or tags | Vector | Score |
 | --- | --- | --- | ---: |
 | Pet | `exercise`, `social` | `[1, 1, 0]` | Search input |
-| Neighborhood Dog Walk (`101`, $15) | `exercise`, `social` | `[1, 1, 0]` | `1.0` |
-| Active Dog Adventure (`104`, $38) | `exercise`, `social`, `outdoors` | `[1, 1, 1]` | `0.8165` |
+| Neighborhood Dog Walk (`101`, ฿550) | `exercise`, `social` | `[1, 1, 0]` | `1.0` |
+| Active Dog Adventure (`104`, ฿1,350) | `exercise`, `social`, `outdoors` | `[1, 1, 1]` | `0.8165` |
 
 The code gives the two service vectors to scikit-learn's `NearestNeighbors`, then searches with the pet vector. With cosine distance, Dog Walk is an exact match (`distance = 0`, so `score = 1 - 0 = 1.0`). Adventure has one extra tag (`distance ≈ 0.1835`, so `score ≈ 0.8165`). Dog Walk ranks first. The code asks for every eligible service, then keeps the highest-scoring results. Review ratings only break ties, so they never lift a service above a closer tag match. See the [ranking details](recommender/README.md) for the full algorithm.
 

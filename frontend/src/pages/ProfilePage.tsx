@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import type { CatalogItem, Pet } from '../types';
 import type { User } from '../App';
 import { useLoading } from '../context/LoadingContext';
+import { formatPrice } from '../components/ui';
 
 interface ProfilePageProps {
     currentUser: User | null;
@@ -256,7 +257,7 @@ export function ProfilePage({ currentUser }: ProfilePageProps) {
                     )}
                 </fieldset>
                 <label className="block">
-                    <span className="text-sm font-semibold text-gray-700">Budget ($)</span>
+                    <span className="text-sm font-semibold text-gray-700">Budget (฿)</span>
                     <input
                         type="number"
                         min="0"
@@ -349,8 +350,8 @@ export function ProfilePage({ currentUser }: ProfilePageProps) {
                                 {pet.species}
                             </span>
                             <span className="ml-3 text-sm text-gray-700">
-                                Needs: {pet.needs.map(readableTag).join(', ') || '—'} · Budget: $
-                                {pet.maxPrice}
+                                Needs: {pet.needs.map(readableTag).join(', ') || '—'} · Budget:{' '}
+                                {formatPrice(pet.maxPrice)}
                             </span>
                             <div className="ml-auto flex gap-2">
                                 <button

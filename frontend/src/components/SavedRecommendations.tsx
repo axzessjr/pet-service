@@ -3,6 +3,7 @@ import type { CatalogItem, Pet, SavedRecommendation } from '../types';
 import {
     dangerButtonClass,
     dangerTextButtonClass,
+    formatPrice,
     primaryButtonClass,
     readableTag,
     secondaryButtonClass,
@@ -321,7 +322,7 @@ export function SavedRecommendations({
                                                                 </p>
                                                             </div>
                                                             {service && (
-                                                                <strong className="shrink-0 text-gray-900">${service.price}</strong>
+                                                                <strong className="shrink-0 text-gray-900">{formatPrice(service.price)}</strong>
                                                             )}
                                                         </li>
                                                     );

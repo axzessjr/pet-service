@@ -9,6 +9,7 @@ import {
     categoryColor,
     categoryIcon,
     controlClass,
+    formatPrice,
     UNMATCHED_COLOR,
 } from './ui';
 
@@ -132,7 +133,7 @@ export function MapFilters({
                     <label className="flex flex-col gap-1 text-sm font-semibold text-gray-800">
                         Max price
                         <span className="relative">
-                            <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-normal text-gray-500">$</span>
+                            <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-normal text-gray-500">฿</span>
                             <input
                                 type="number"
                                 inputMode="decimal"
@@ -147,7 +148,7 @@ export function MapFilters({
                         </span>
                         <span id="max-price-hint" className="text-xs font-normal text-gray-600">
                             {pet.maxPrice > 0
-                                ? `${pet.name}’s budget is $${pet.maxPrice}`
+                                ? `${pet.name}’s budget is ${formatPrice(pet.maxPrice)}`
                                 : `${pet.name} has no budget limit`}
                         </span>
                     </label>
