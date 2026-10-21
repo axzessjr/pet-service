@@ -57,9 +57,9 @@ To run the review service outside Docker, add `RABBITMQ_URL` for a broker to `re
 
 ## Recommendations
 
-Open **For my pet** at <http://localhost:5173/recommendations> and select a pet. NestJS loads that pet and the catalog, sends both to the Python service over gRPC, then adds catalog details to the ranked matches it receives.
+Open **For my pet** at <http://localhost:5173/recommendations>. The page is a map of the services that fit your pet (see [Map](#map)); if you have more than one pet, choose one at the top. For the area on screen, NestJS loads the pet and the catalog services there, sends them to the Python service over gRPC, then adds catalog details to the ranked matches it receives.
 
-On that page, use **Generate and save set** to create a snapshot for the selected pet. The **Saved recommendation sets** section lists that pet's sets. Select a set to see its ranked services, change the service limit and choose **Recalculate set** to update it using current pet and catalog data, or choose **Delete set** and confirm to remove it. Switching pets shows that pet's saved sets.
+Choose **Saved lists** to open the selected pet's saved sets. **Save snapshot** saves the pet's top 10 matches, ranked across the whole catalog rather than only the area on the map. Open a set to see its ranked services, choose **Update with latest** to recalculate it from the current pet and catalog data, or choose **Delete** and confirm to remove it. Switching pets shows that pet's saved sets.
 
 **What it uses to find services:**
 
@@ -96,7 +96,11 @@ The saved response contains `id`, `petId`, `limit`, `matches` (service IDs, scor
 
 ### Map
 
-On **For my pet**, choose **Map** to see recommendations on an OpenStreetMap map (Leaflet), centred on Chulalongkorn University. Panning or zooming fetches recommendations for the visible area once the map has been still for 400 ms. The search box, category, maximum price, and rating filters narrow the same results, and the list beside the map always shows exactly the pins. The view, map position, and filters are kept in the URL.
+**For my pet** shows recommendations on an OpenStreetMap map (Leaflet), centred on Chulalongkorn University. Panning or zooming fetches recommendations for the visible area once the map has been still for 400 ms. The search box, the category chips, and the maximum price and rating filters (under **Filters**) narrow the same results. The chips only offer categories that have a service for the pet's species, and they double as the legend for the pin colours.
+
+The map is held to the area with services: every service and Chula, plus about 1 km. It can't be dragged off that area or zoomed out past the point where all of it is in view, and a link to a place outside it opens on the services instead. The area comes from the catalog's locations, so it grows with the catalog.
+
+On wide screens the results are listed to the right of the map; on phones they are in a sheet over its lower edge, which shows the best match until you choose **See all**. The list always shows exactly the pins. Choose a row or a pin to open that service's details, with previous and next buttons to step through the results; choose **All results**, press Escape, or select an empty part of the map to go back. The map position and filters are kept in the URL.
 
 The map calls:
 

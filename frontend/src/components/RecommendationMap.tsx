@@ -1,11 +1,4 @@
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ReactNode,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -13,10 +6,10 @@ import {
     Marker,
     Popup,
     TileLayer,
-    ZoomControl,
     useMap,
+    useMapEvents,
 } from 'react-leaflet';
-import type { MapMode, MapRecommendation, Pet } from '../types';
+import type { MapBounds, MapMode, MapRecommendation } from '../types';
 import {
     barelyChanged,
     CHULA,
@@ -26,42 +19,62 @@ import {
     MIN_ZOOM,
     type Viewport,
 } from '../mapApi';
-import { RatingSummary } from './Stars';
-import {
-    categoryColor,
-    categoryIcon,
-    matchLabel,
-    readableTag,
-    UNMATCHED_COLOR,
-} from './ui';
+import { categoryColor, categoryIcon, matchLabel, UNMATCHED_COLOR } from './ui';
+
+// OpenStreetMap tiles, toned down so the coloured pins stand out.
+const TILES = {
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    className: 'saturate-[.35] brightness-105',
+};
 
 const CAMPUS_ICON = L.divIcon({
     className: '',
-    html: `<span class="flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-pink-700 text-white shadow-lg"><i class="fa-solid fa-building-columns"></i></span>`,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20],
+    html: `<span class="flex h-9 w-9 items-center justify-center rounded-full border-[3px] border-white bg-pink-700 text-sm text-white shadow-lg"><i class="fa-solid fa-building-columns"></i></span>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18],
 });
+
+const YOU_ARE_HERE_ICON = L.divIcon({
+    className: '',
+    html: `<span class="relative flex h-5 w-5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-60 motion-reduce:animate-none"></span><span class="relative inline-flex h-5 w-5 rounded-full border-[3px] border-white bg-blue-600 shadow"></span></span>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+});
+
+type PinState = 'normal' | 'hovered' | 'selected';
 
 function pinIcon(
     item: MapRecommendation,
     rank: number | undefined,
-    highlighted: boolean,
+    state: PinState,
+    best: boolean,
 ): L.DivIcon {
     const color = item.matched
         ? categoryColor(item.service.category)
         : UNMATCHED_COLOR;
+    const base = item.matched ? 32 : 26;
+    const size = state === 'selected' ? 44 : state === 'hovered' ? base + 6 : base;
     const label =
         rank !== undefined
             ? `<span class="text-sm font-bold">${rank}</span>`
-            : `<i class="fa-solid ${categoryIcon(item.service.category)} text-xs"></i>`;
-    const size = highlighted ? 40 : 30;
+            : `<i class="fa-solid ${categoryIcon(item.service.category)} ${size >= 40 ? 'text-base' : 'text-xs'}"></i>`;
+    const ring =
+        state === 'selected'
+            ? 'ring-4 ring-amber-400 shadow-xl'
+            : state === 'hovered'
+              ? 'ring-4 ring-amber-300 shadow-lg'
+              : 'shadow-md';
+    const star = best
+        ? `<span class="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-white bg-amber-400 text-[9px] text-amber-950"><i class="fa-solid fa-star"></i></span>`
+        : '';
     return L.divIcon({
         className: '',
-        html: `<span class="flex items-center justify-center rounded-full border-2 border-white text-white shadow-md transition-transform ${highlighted ? 'ring-4 ring-amber-400' : ''} ${item.matched ? '' : 'opacity-80'}" style="width:${size}px;height:${size}px;background:${color}">${label}</span>`,
+        html: `<span class="relative flex items-center justify-center rounded-full border-2 border-white text-white transition-transform ${ring}" style="width:${size}px;height:${size}px;background:${color}">${label}${star}</span>`,
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
-        popupAnchor: [0, -size / 2],
     });
 }
 
@@ -119,71 +132,127 @@ function ViewportWatcher({
     return null;
 }
 
-export interface FocusRequest {
-    id: number;
-    // Changes on every request, so asking for the same service again works.
-    nonce: number;
+// Leaflet only measures its box on load; this keeps it right when the
+// layout around it changes, such as when the filters open.
+function SizeWatcher() {
+    const map = useMap();
+    useEffect(() => {
+        const observer = new ResizeObserver(() => map.invalidateSize());
+        observer.observe(map.getContainer());
+        return () => observer.disconnect();
+    }, [map]);
+    return null;
+}
+
+function BackgroundClick({ onClick }: { onClick: () => void }) {
+    useMapEvents({ click: onClick });
+    return null;
+}
+
+// Holds the map to the area with services: it can't be dragged off it, or
+// zoomed out past the point where all of it is in view. The second limit
+// depends on the map's size, so it is worked out again on resize.
+function AreaLimit({ area }: { area: L.LatLngBounds | null }) {
+    const map = useMap();
+    useEffect(() => {
+        if (!area) return;
+        const fitZoom = () =>
+            map.setMinZoom(Math.max(MIN_ZOOM, map.getBoundsZoom(area)));
+        map.setMaxBounds(area);
+        fitZoom();
+        map.on('resize', fitZoom);
+        return () => {
+            map.off('resize', fitZoom);
+        };
+    }, [map, area]);
+    return null;
 }
 
 interface RecommendationMapProps {
-    pet: Pet;
     initialCenter: { lat: number; lng: number };
     initialZoom: number;
+    // Where the services are; the map stays inside it once it is known.
+    area: MapBounds | null;
     recommendations: MapRecommendation[];
+    // The open service, if the map has moved so it is no longer in the
+    // results, so its pin stays put.
+    extraPin: MapRecommendation | null;
     mode: MapMode | null;
     hoveredId: number | null;
-    focus: FocusRequest | null;
-    status: ReactNode;
+    selectedId: number | null;
+    bestId: number | null;
+    overlay: ReactNode;
+    onReady: (map: L.Map) => void;
     onViewportChange: (viewport: Viewport) => void;
     onHover: (id: number | null) => void;
-    onSelect: (id: number) => void;
-    onShowReviews: (item: MapRecommendation) => void;
+    onSelect: (item: MapRecommendation) => void;
+    onBackgroundClick: () => void;
 }
 
 export function RecommendationMap({
-    pet,
     initialCenter,
     initialZoom,
+    area,
     recommendations,
+    extraPin,
     mode,
     hoveredId,
-    focus,
-    status,
+    selectedId,
+    bestId,
+    overlay,
+    onReady,
     onViewportChange,
     onHover,
     onSelect,
-    onShowReviews,
+    onBackgroundClick,
 }: RecommendationMapProps) {
     const [map, setMap] = useState<L.Map | null>(null);
-    const markers = useRef(new Map<number, L.Marker>());
     const [locating, setLocating] = useState(false);
     const [locationNote, setLocationNote] = useState('');
-
-    // "Show on map" from the list: bring the pin into view and open it.
-    useEffect(() => {
-        if (!map || !focus) return;
-        const marker = markers.current.get(focus.id);
-        if (!marker) return;
-        map.panTo(marker.getLatLng());
-        marker.openPopup();
-    }, [map, focus]);
-
-    const registerMarker = useCallback(
-        (id: number, marker: L.Marker | null) => {
-            if (marker) markers.current.set(id, marker);
-            else markers.current.delete(id);
-        },
-        [],
-    );
-
-    const pins = useMemo(
+    const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
+    // For greying out the zoom buttons at the limits.
+    const [zoom, setZoom] = useState({
+        level: initialZoom,
+        min: MIN_ZOOM,
+        max: MAX_ZOOM,
+    });
+    const areaBounds = useMemo(
         () =>
-            recommendations.map((item, index) => ({
-                item,
-                rank: mode === 'top' ? index + 1 : undefined,
-            })),
-        [recommendations, mode],
+            area
+                ? L.latLngBounds(
+                      [area.minLat, area.minLng],
+                      [area.maxLat, area.maxLng],
+                  )
+                : null,
+        [area],
     );
+
+    useEffect(() => {
+        if (map) onReady(map);
+    }, [map, onReady]);
+
+    useEffect(() => {
+        if (!map) return;
+        const update = () =>
+            setZoom({
+                level: map.getZoom(),
+                min: map.getMinZoom(),
+                max: map.getMaxZoom(),
+            });
+        map.on('zoomend zoomlevelschange', update);
+        return () => {
+            map.off('zoomend zoomlevelschange', update);
+        };
+    }, [map]);
+
+    const pins = useMemo(() => {
+        const list = recommendations.map((item, index) => ({
+            item,
+            rank: mode === 'top' ? index + 1 : undefined,
+        }));
+        if (extraPin) list.push({ item: extraPin, rank: undefined });
+        return list;
+    }, [recommendations, extraPin, mode]);
 
     function locateMe() {
         if (!map) return;
@@ -196,17 +265,26 @@ export function RecommendationMap({
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 setLocating(false);
-                map.flyTo(
-                    [position.coords.latitude, position.coords.longitude],
-                    DEFAULT_ZOOM,
-                );
+                const point = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                };
+                // The map can't go there, so say so rather than bounce back.
+                if (areaBounds && !areaBounds.contains([point.lat, point.lng])) {
+                    setLocationNote(
+                        'You’re outside the area with services, so the map stays here.',
+                    );
+                    return;
+                }
+                setHere(point);
+                map.flyTo([point.lat, point.lng], DEFAULT_ZOOM);
             },
             (error) => {
                 setLocating(false);
                 setLocationNote(
                     error.code === error.PERMISSION_DENIED
                         ? 'Location access was denied, so the map stays where it is.'
-                        : 'Couldn’t find your location. Try again or pan the map.',
+                        : 'Couldn’t find your location. Try again or move the map.',
                 );
             },
             { timeout: 10000, maximumAge: 60000 },
@@ -214,31 +292,33 @@ export function RecommendationMap({
     }
 
     const controlClass =
-        'flex min-h-10 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700';
+        'flex h-11 w-11 items-center justify-center bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50 focus-visible:relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700';
+    const groupClass =
+        'flex flex-col divide-y divide-gray-200 overflow-hidden rounded-lg shadow-md ring-1 ring-black/10';
 
     return (
-        <div className="relative isolate h-[60vh] min-h-[360px] overflow-hidden rounded-2xl border border-gray-200 lg:h-[calc(100vh-2rem)] lg:max-h-[720px]">
+        <div className="relative isolate h-full w-full">
             <MapContainer
                 ref={setMap}
                 center={[initialCenter.lat, initialCenter.lng]}
                 zoom={initialZoom}
                 minZoom={MIN_ZOOM}
                 maxZoom={MAX_ZOOM}
+                // A hard edge at the area limit, rather than a rubber band.
+                maxBoundsViscosity={1}
                 zoomControl={false}
-                className="h-full w-full"
+                className="h-full w-full bg-gray-100"
             >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <ZoomControl position="bottomright" />
+                <TileLayer {...TILES} />
                 <ViewportWatcher onChange={onViewportChange} />
+                <SizeWatcher />
+                <AreaLimit area={areaBounds} />
+                <BackgroundClick onClick={onBackgroundClick} />
 
                 <Marker
                     position={[CHULA.lat, CHULA.lng]}
                     icon={CAMPUS_ICON}
                     title="Chulalongkorn University"
-                    alt="Chulalongkorn University"
                     zIndexOffset={-100}
                 >
                     <Popup>
@@ -248,51 +328,93 @@ export function RecommendationMap({
                     </Popup>
                 </Marker>
 
+                {here && (
+                    <Marker
+                        position={[here.lat, here.lng]}
+                        icon={YOU_ARE_HERE_ICON}
+                        interactive={false}
+                        keyboard={false}
+                        zIndexOffset={-50}
+                    />
+                )}
+
                 {pins.map(({ item, rank }) => (
                     <ServicePin
                         key={item.service.id}
                         item={item}
                         rank={rank}
-                        pet={pet}
-                        highlighted={item.service.id === hoveredId}
-                        registerMarker={registerMarker}
+                        state={
+                            item.service.id === selectedId
+                                ? 'selected'
+                                : item.service.id === hoveredId
+                                  ? 'hovered'
+                                  : 'normal'
+                        }
+                        best={item.service.id === bestId}
                         onHover={onHover}
                         onSelect={onSelect}
-                        onShowReviews={onShowReviews}
                     />
                 ))}
             </MapContainer>
 
-            <div className="pointer-events-none absolute inset-x-3 top-3 z-[1000] flex flex-wrap items-start justify-between gap-2">
-                <div className="pointer-events-auto">{status}</div>
-                <div className="pointer-events-auto flex flex-wrap justify-end gap-2">
+            <div className="pointer-events-none absolute inset-x-16 top-3 z-[1000] flex flex-col items-center gap-2">
+                <div className="pointer-events-auto">{overlay}</div>
+                {locationNote && (
+                    <p
+                        role="status"
+                        className="pointer-events-auto m-0 max-w-xs rounded-lg bg-white/95 px-3 py-2 text-center text-sm text-gray-800 shadow-md ring-1 ring-black/10"
+                    >
+                        {locationNote}
+                    </p>
+                )}
+            </div>
+
+            <div className="absolute right-3 top-3 z-[1000] flex flex-col gap-2">
+                {/* Phones zoom with a pinch, which leaves room for the sheet. */}
+                <div className={`${groupClass} max-lg:hidden`}>
                     <button
                         type="button"
+                        aria-label="Zoom in"
+                        title="Zoom in"
+                        onClick={() => map?.zoomIn()}
+                        disabled={zoom.level >= zoom.max}
                         className={controlClass}
-                        onClick={() => map?.flyTo([CHULA.lat, CHULA.lng], DEFAULT_ZOOM)}
                     >
-                        <i aria-hidden="true" className="fa-solid fa-building-columns text-pink-700"></i>
-                        Recenter on Chula
+                        <i aria-hidden="true" className="fa-solid fa-plus"></i>
                     </button>
                     <button
                         type="button"
+                        aria-label="Zoom out"
+                        title={zoom.level <= zoom.min ? 'The whole area with services is in view' : 'Zoom out'}
+                        onClick={() => map?.zoomOut()}
+                        disabled={zoom.level <= zoom.min}
                         className={controlClass}
+                    >
+                        <i aria-hidden="true" className="fa-solid fa-minus"></i>
+                    </button>
+                </div>
+                <div className={groupClass}>
+                    <button
+                        type="button"
+                        aria-label={locating ? 'Finding your location' : 'Show my location'}
+                        title="Show my location"
                         onClick={locateMe}
                         disabled={locating}
+                        className={controlClass}
                     >
-                        <i aria-hidden="true" className="fa-solid fa-location-crosshairs text-teal-700"></i>
-                        {locating ? 'Locating...' : 'Use my location'}
+                        <i aria-hidden="true" className={`fa-solid ${locating ? 'fa-spinner fa-spin' : 'fa-location-crosshairs'} text-blue-700`}></i>
+                    </button>
+                    <button
+                        type="button"
+                        aria-label="Back to Chulalongkorn University"
+                        title="Back to Chulalongkorn University"
+                        onClick={() => map?.flyTo([CHULA.lat, CHULA.lng], DEFAULT_ZOOM)}
+                        className={controlClass}
+                    >
+                        <i aria-hidden="true" className="fa-solid fa-building-columns text-pink-700"></i>
                     </button>
                 </div>
             </div>
-            {locationNote && (
-                <p
-                    role="status"
-                    className="absolute inset-x-3 bottom-3 z-[1000] m-0 mr-14 rounded-lg bg-white/95 p-2 text-sm text-gray-800 shadow"
-                >
-                    {locationNote}
-                </p>
-            )}
         </div>
     );
 }
@@ -300,115 +422,44 @@ export function RecommendationMap({
 interface ServicePinProps {
     item: MapRecommendation;
     rank: number | undefined;
-    pet: Pet;
-    highlighted: boolean;
-    registerMarker: (id: number, marker: L.Marker | null) => void;
+    state: PinState;
+    best: boolean;
     onHover: (id: number | null) => void;
-    onSelect: (id: number) => void;
-    onShowReviews: (item: MapRecommendation) => void;
+    onSelect: (item: MapRecommendation) => void;
 }
 
-function ServicePin({
-    item,
-    rank,
-    pet,
-    highlighted,
-    registerMarker,
-    onHover,
-    onSelect,
-    onShowReviews,
-}: ServicePinProps) {
-    const { service, score, matchedNeeds, averageRating, reviewCount } = item;
+function ServicePin({ item, rank, state, best, onHover, onSelect }: ServicePinProps) {
+    const { service, score, matched } = item;
     const icon = useMemo(
-        () => pinIcon(item, rank, highlighted),
-        [item, rank, highlighted],
+        () => pinIcon(item, rank, state, best),
+        [item, rank, state, best],
     );
     const id = service.id;
+    const summary = matched ? matchLabel(score) : 'Doesn’t cover the needs';
 
     return (
         <Marker
-            ref={(marker) => registerMarker(id, marker)}
             position={[service.location.lat, service.location.lng]}
             icon={icon}
-            title={`${rank !== undefined ? `${rank}. ` : ''}${service.title}`}
-            alt={service.title}
-            // Better ranks draw on top where pins overlap.
+            title={`${rank !== undefined ? `${rank}. ` : ''}${service.title}, $${service.price}, ${summary}`}
+            // The open pin, then the hovered one, then better ranks draw on
+            // top where pins overlap.
             zIndexOffset={
-                highlighted
-                    ? 1000
-                    : rank !== undefined
-                      ? 500 - rank * 10
-                      : item.matched
-                        ? 100
-                        : 0
+                state === 'selected'
+                    ? 2000
+                    : state === 'hovered'
+                      ? 1500
+                      : rank !== undefined
+                        ? 500 - rank * 10
+                        : matched
+                          ? 100
+                          : 0
             }
             eventHandlers={{
                 mouseover: () => onHover(id),
                 mouseout: () => onHover(null),
-                click: () => onSelect(id),
+                click: () => onSelect(item),
             }}
-        >
-            <Popup>
-                <div className="min-w-[220px] max-w-[260px] text-sm">
-                    <div className="m-0 text-xs font-semibold uppercase tracking-wide text-teal-700">
-                        {rank !== undefined && `#${rank} · `}
-                        {service.category}
-                    </div>
-                    <div className="m-0 mt-1 text-base font-bold leading-snug text-gray-900">
-                        {service.title}
-                    </div>
-                    <div className="m-0 text-gray-600">
-                        By {service.provider} · <strong className="text-gray-900">${service.price}</strong>
-                    </div>
-                    <div className="mt-2">
-                        <RatingSummary
-                            averageRating={averageRating}
-                            reviewCount={reviewCount}
-                        />
-                    </div>
-                    {item.matched && pet.needs.length > 0 ? (
-                        <div className="m-0 mt-2 text-gray-800">
-                            <span className="font-semibold">
-                                {matchLabel(score)} ({Math.round(score * 100)}%)
-                            </span>
-                            {matchedNeeds.length > 0 && (
-                                <span className="block capitalize text-teal-900">
-                                    <i aria-hidden="true" className="fa-solid fa-circle-check mr-1 text-teal-600"></i>
-                                    {matchedNeeds.map(readableTag).join(', ')}
-                                </span>
-                            )}
-                        </div>
-                    ) : (
-                        !item.matched && (
-                            <div className="m-0 mt-2 text-gray-600">
-                                Doesn’t cover {pet.name}’s needs.
-                            </div>
-                        )
-                    )}
-                    <div className="m-0 mt-2 text-gray-600">
-                        <i aria-hidden="true" className="fa-solid fa-location-dot mr-1 text-gray-400"></i>
-                        {service.location.address}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            onClick={() => onSelect(id)}
-                            className="min-h-9 rounded-lg bg-teal-700 px-3 text-sm font-semibold text-white hover:bg-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
-                        >
-                            Details
-                        </button>
-                        {reviewCount > 0 && (
-                            <button
-                                type="button"
-                                onClick={() => onShowReviews(item)}
-                                className="min-h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
-                            >
-                                Reviews
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </Popup>
-        </Marker>
+        />
     );
 }

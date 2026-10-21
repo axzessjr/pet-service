@@ -79,6 +79,22 @@ export function matchLabel(score: number): string {
     return 'Partial match';
 }
 
+// Badge colours for matchLabel, strongest first.
+export function matchTone(score: number): string {
+    if (score >= 0.8) return 'bg-teal-700 text-white';
+    if (score >= 0.5) return 'bg-teal-50 text-teal-900 ring-1 ring-inset ring-teal-200';
+    return 'bg-gray-100 text-gray-700';
+}
+
+// About the height of the map frame, for its loading placeholder. The frame
+// itself measures where it starts and ends at the bottom of the window.
+export const mapFrameHeightClass =
+    'h-[calc(100svh-19rem)] min-h-[26rem] lg:h-[calc(100svh-14rem)] lg:min-h-[30rem]';
+
+export function directionsUrl(location: { lat: number; lng: number }): string {
+    return `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lng}`;
+}
+
 // A budget of 0 means the owner set no limit.
 export function budgetNote(price: number, maxPrice: number): string {
     if (maxPrice <= 0) return '';

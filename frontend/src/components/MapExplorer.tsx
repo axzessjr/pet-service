@@ -1,26 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type L from 'leaflet';
 import type { MapRecommendation, MapRecommendations, Pet } from '../types';
 import {
     DEBOUNCE_MS,
     filterParams,
+    MIN_ZOOM,
     readFilters,
     readPosition,
     useMapRecommendations,
+    useServiceArea,
     type MapFilters as Filters,
     type Viewport,
 } from '../mapApi';
+import { DESKTOP_QUERY, useMediaQuery } from '../useMediaQuery';
 import { MapFilters } from './MapFilters';
-import {
-    EmptyState,
-    RecommendationCard,
-    SortControl,
-} from './RecommendationCard';
-import { RecommendationMap, type FocusRequest } from './RecommendationMap';
-import {
-    secondaryButtonClass,
-    sortRecommendations,
-    type SortKey,
-} from './ui';
+import { RecommendationMap } from './RecommendationMap';
+import { ResultsPanel } from './ResultsPanel';
+import { mapFrameHeightClass } from './ui';
+
+const FRAME_MAX_HEIGHT = 800;
 
 interface MapExplorerProps {
     pet: Pet;
@@ -29,12 +27,16 @@ interface MapExplorerProps {
     onShowReviews: (item: MapRecommendation) => void;
 }
 
+// Search, results, and map in one frame. Wide screens put the filters and
+// results in a column to the right of the map; phones put the filters
+// above it and the results in a sheet over its bottom edge.
 export function MapExplorer({
     pet,
     params,
     updateParams,
     onShowReviews,
 }: MapExplorerProps) {
+    const isDesktop = useMediaQuery(DESKTOP_QUERY);
     const filters = readFilters(params);
     // The map keeps its own position after it opens; the URL follows it.
     const [initial] = useState(() => readPosition(params));
@@ -42,8 +44,28 @@ export function MapExplorer({
     const [qInput, setQInput] = useState(filters.q);
     const [priceInput, setPriceInput] = useState(filters.maxPrice);
     const [hoveredId, setHoveredId] = useState<number | null>(null);
-    const [focus, setFocus] = useState<FocusRequest | null>(null);
-    const [sort, setSort] = useState<SortKey>('match');
+    const [selected, setSelected] = useState<MapRecommendation | null>(null);
+    const [map, setMap] = useState<L.Map | null>(null);
+    const frameRef = useRef<HTMLDivElement>(null);
+    const area = useServiceArea();
+
+    // End the frame at the bottom of the window, wherever the header above
+    // leaves it, so the whole search fits on one screen. On phones that also
+    // leaves the header to scroll by, since a drag on the map pans it. `svh`
+    // keeps it steady as mobile browser bars come and go. Tall screens stop
+    // at FRAME_MAX_HEIGHT, past which the results list just gets longer.
+    useLayoutEffect(() => {
+        const frame = frameRef.current;
+        if (!frame) return;
+        const fit = () => {
+            const top = frame.getBoundingClientRect().top + window.scrollY;
+            const min = isDesktop ? 480 : 420;
+            frame.style.height = `clamp(${min}px, calc(100svh - ${Math.round(top) + 16}px), ${FRAME_MAX_HEIGHT}px)`;
+        };
+        fit();
+        window.addEventListener('resize', fit);
+        return () => window.removeEventListener('resize', fit);
+    }, [isDesktop]);
 
     const { data, loading, error, retry } = useMapRecommendations(
         pet.id,
@@ -51,28 +73,67 @@ export function MapExplorer({
         filters,
     );
 
-    const setFilters = (patch: Partial<Filters>) =>
+    // Opening a service replaces the list, so the row under the pointer
+    // never hears it leave; drop its highlight here.
+    const select = (item: MapRecommendation) => {
+        setHoveredId(null);
+        setSelected(item);
+    };
+
+    // New filters mean a new set of results, so close any open service.
+    const applyFilters = (patch: Partial<Filters>) => {
+        setSelected(null);
         updateParams(filterParams(patch));
+    };
 
     // Typing waits for a pause before it searches.
     useEffect(() => {
         if (qInput.trim() === filters.q) return;
-        const timer = window.setTimeout(
-            () => updateParams(filterParams({ q: qInput })),
-            DEBOUNCE_MS,
-        );
+        const timer = window.setTimeout(() => {
+            setSelected(null);
+            updateParams(filterParams({ q: qInput }));
+        }, DEBOUNCE_MS);
         return () => window.clearTimeout(timer);
     }, [qInput, filters.q, updateParams]);
 
     useEffect(() => {
         const valid = priceInput === '' || Number(priceInput) > 0;
         if (!valid || priceInput === filters.maxPrice) return;
-        const timer = window.setTimeout(
-            () => updateParams(filterParams({ maxPrice: priceInput })),
-            DEBOUNCE_MS,
-        );
+        const timer = window.setTimeout(() => {
+            setSelected(null);
+            updateParams(filterParams({ maxPrice: priceInput }));
+        }, DEBOUNCE_MS);
         return () => window.clearTimeout(timer);
     }, [priceInput, filters.maxPrice, updateParams]);
+
+    // Keep the open service's pin in the part of the map that isn't covered
+    // by the controls or, on phones, the results sheet. If it is outside
+    // that part, centre it there.
+    useEffect(() => {
+        if (!map || !selected) return;
+        const size = map.getSize();
+        const sheet = isDesktop
+            ? 0
+            : (document.getElementById('results-panel')?.offsetHeight ?? 0);
+        const clear = isDesktop
+            ? { top: 64, right: 72, bottom: 40, left: 32 }
+            : { top: 56, right: 72, bottom: sheet + 40, left: 24 };
+        const bottomEdge = Math.max(clear.top, size.y - clear.bottom);
+        const point = map.latLngToContainerPoint([
+            selected.service.location.lat,
+            selected.service.location.lng,
+        ]);
+        const inView =
+            point.x >= clear.left &&
+            point.x <= size.x - clear.right &&
+            point.y >= clear.top &&
+            point.y <= bottomEdge;
+        if (inView) return;
+        map.panBy([
+            point.x - (clear.left + size.x - clear.right) / 2,
+            point.y - (clear.top + bottomEdge) / 2,
+        ]);
+    }, [map, selected, isDesktop]);
 
     function changeViewport(next: Viewport) {
         setViewport(next);
@@ -86,7 +147,7 @@ export function MapExplorer({
     function clearFilters() {
         setQInput('');
         setPriceInput('');
-        setFilters({
+        applyFilters({
             q: '',
             category: '',
             maxPrice: '',
@@ -95,235 +156,141 @@ export function MapExplorer({
         });
     }
 
-    function scrollToCard(id: number) {
-        document
-            .getElementById(`map-service-${id}`)
-            ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
     const recommendations = data?.recommendations ?? [];
-    const sorted = sortRecommendations(recommendations, sort);
-    const ranks = new Map(
-        recommendations.map((item, index) => [item.service.id, index + 1]),
-    );
+    const first = recommendations[0];
+    const bestId =
+        first && first.matched && pet.needs.length > 0 ? first.service.id : null;
     const hasFilters =
         Boolean(filters.q || filters.category || filters.maxPrice || filters.minRating) ||
         !filters.includeUnmatched;
-    const zoomedOut = data?.mode === 'top';
+    const extraPin =
+        selected &&
+        !recommendations.some((item) => item.service.id === selected.service.id)
+            ? selected
+            : null;
 
     return (
-        <div>
+        <div
+            ref={frameRef}
+            className={`relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:grid-rows-[auto_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_26rem] ${mapFrameHeightClass}`}
+        >
             <MapFilters
+                pet={pet}
                 filters={filters}
                 qInput={qInput}
                 priceInput={priceInput}
-                petMaxPrice={pet.maxPrice}
                 onQInput={setQInput}
                 onPriceInput={setPriceInput}
-                onChange={setFilters}
+                onChange={applyFilters}
                 onClear={clearFilters}
             />
 
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-                <div className="lg:sticky lg:top-4 lg:self-start">
+            {/* On wide screens this wrapper steps aside so the panel and map
+                sit in the frame's grid; on phones it holds the map and the
+                sheet over it. */}
+            <div className="relative min-h-0 flex-1 lg:contents">
+                <ResultsPanel
+                    pet={pet}
+                    data={data}
+                    loading={loading}
+                    error={error}
+                    onRetry={retry}
+                    hasFilters={hasFilters}
+                    onClearFilters={clearFilters}
+                    canZoomOut={(viewport?.zoom ?? MIN_ZOOM) > (map?.getMinZoom() ?? MIN_ZOOM)}
+                    onZoomIn={() => map?.zoomIn()}
+                    onZoomOut={() => map?.zoomOut()}
+                    hoveredId={hoveredId}
+                    onHover={setHoveredId}
+                    selected={selected}
+                    onSelect={select}
+                    onBack={() => setSelected(null)}
+                    onShowReviews={onShowReviews}
+                    isDesktop={isDesktop}
+                />
+                <div className="absolute inset-0 lg:static lg:col-start-1 lg:row-span-2 lg:row-start-1">
                     <RecommendationMap
-                        pet={pet}
                         initialCenter={initial.center}
                         initialZoom={initial.zoom}
+                        area={area}
                         recommendations={recommendations}
+                        extraPin={extraPin}
                         mode={data?.mode ?? null}
                         hoveredId={hoveredId}
-                        focus={focus}
-                        status={
-                            <StatusChip
+                        selectedId={selected?.service.id ?? null}
+                        bestId={bestId}
+                        overlay={
+                            <MapStatus
                                 data={data}
                                 loading={loading}
                                 error={error}
                                 onRetry={retry}
+                                onZoomIn={() => map?.zoomIn()}
                             />
                         }
+                        onReady={setMap}
                         onViewportChange={changeViewport}
                         onHover={setHoveredId}
-                        onSelect={scrollToCard}
-                        onShowReviews={onShowReviews}
+                        onSelect={select}
+                        onBackgroundClick={() => setSelected(null)}
                     />
-                    <p className="m-0 mt-2 text-xs text-gray-600">
-                        <i aria-hidden="true" className="fa-solid fa-circle-info mr-1"></i>
-                        Pan or zoom to search a different area. Every pin is
-                        also in the list, so you can browse without the map.
-                    </p>
                 </div>
-
-                <section
-                    aria-labelledby="map-results-heading"
-                    aria-busy={loading}
-                    className="min-w-0"
-                >
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                        <h3
-                            id="map-results-heading"
-                            className="m-0 text-xl font-bold text-gray-900"
-                        >
-                            {data ? `In this area (${recommendations.length})` : 'In this area'}
-                        </h3>
-                        {recommendations.length > 1 && (
-                            <SortControl value={sort} onChange={setSort} />
-                        )}
-                    </div>
-
-                    {error && (
-                        <div
-                            role="alert"
-                            className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800"
-                        >
-                            <p className="m-0">{error}</p>
-                            <button
-                                type="button"
-                                onClick={retry}
-                                className={`${secondaryButtonClass} mt-3`}
-                            >
-                                Try again
-                            </button>
-                        </div>
-                    )}
-
-                    {!data && !error && <ListSkeleton />}
-
-                    {data && recommendations.length === 0 && !error && (
-                        <EmptyState
-                            icon="fa-map-location-dot"
-                            title={
-                                hasFilters
-                                    ? 'Nothing here matches your filters'
-                                    : `No services for ${pet.name} in this area`
-                            }
-                            body={
-                                hasFilters
-                                    ? 'Clear some filters, or zoom out to search a wider area.'
-                                    : `Zoom out or pan the map to find services that fit ${pet.name}’s species and budget.`
-                            }
-                            action={
-                                hasFilters ? (
-                                    <button type="button" onClick={clearFilters} className={secondaryButtonClass}>
-                                        Clear all filters
-                                    </button>
-                                ) : undefined
-                            }
-                        />
-                    )}
-
-                    {recommendations.length > 0 && (
-                        <ol className="m-0 grid list-none gap-3 p-0">
-                            {sorted.map((item) => {
-                                const id = item.service.id;
-                                const rank = ranks.get(id);
-                                return (
-                                    <RecommendationCard
-                                        key={id}
-                                        id={`map-service-${id}`}
-                                        item={item}
-                                        pet={pet}
-                                        featured={false}
-                                        best={rank === 1 && item.matched && pet.needs.length > 0}
-                                        rank={zoomedOut ? rank : undefined}
-                                        unmatched={!item.matched}
-                                        highlighted={hoveredId === id}
-                                        onHover={(hovering) => setHoveredId(hovering ? id : null)}
-                                        onShowReviews={() => onShowReviews(item)}
-                                        actions={
-                                            <button
-                                                type="button"
-                                                onClick={() => setFocus({ id, nonce: Date.now() })}
-                                                className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-teal-800 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
-                                            >
-                                                <i aria-hidden="true" className="fa-solid fa-map-pin mr-2"></i>
-                                                Show on map
-                                            </button>
-                                        }
-                                    />
-                                );
-                            })}
-                        </ol>
-                    )}
-
-                    {zoomedOut && data && data.total > recommendations.length && (
-                        <p className="m-0 mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
-                            {data.total - recommendations.length} more in this area.
-                            Zoom in to see them all.
-                        </p>
-                    )}
-                </section>
             </div>
         </div>
     );
 }
 
-function StatusChip({
+// A note over the map, only while there is something to say about it.
+function MapStatus({
     data,
     loading,
     error,
     onRetry,
+    onZoomIn,
 }: {
     data: MapRecommendations | null;
     loading: boolean;
     error: string;
     onRetry: () => void;
+    onZoomIn: () => void;
 }) {
     const chip =
-        'inline-flex min-h-10 items-center gap-2 rounded-full border bg-white/95 px-3 text-sm font-semibold shadow-sm';
+        'inline-flex min-h-10 items-center gap-2 rounded-full bg-white/95 px-4 text-sm font-semibold shadow-md ring-1 ring-black/10';
+    // The results panel announces errors; this is the same news on the map.
     if (error) {
         return (
-            <span className={`${chip} border-red-200 text-red-800`}>
+            <span className={`${chip} text-red-800`}>
                 <i aria-hidden="true" className="fa-solid fa-triangle-exclamation"></i>
                 Couldn’t load this area
                 <button
                     type="button"
                     onClick={onRetry}
-                    className="rounded px-1 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700"
+                    className="min-h-10 rounded px-1 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700"
                 >
                     Retry
                 </button>
             </span>
         );
     }
-    let text = 'Finding services...';
-    if (data) {
-        const shown = data.recommendations.length;
-        if (data.mode === 'top' && data.total > shown) {
-            text = `Showing top ${shown} of ${data.total} in this area · zoom in to see all`;
-        } else if (shown < data.total) {
-            text = `Showing ${shown} of ${data.total} services in this area`;
-        } else {
-            text = `${data.total} ${data.total === 1 ? 'service' : 'services'} in this area`;
-        }
-    }
-    return (
-        <span role="status" className={`${chip} border-gray-200 text-gray-800`}>
-            {loading ? (
+    if (loading) {
+        return (
+            <span role="status" className={`${chip} text-gray-800`}>
                 <i aria-hidden="true" className="fa-solid fa-spinner fa-spin text-teal-700"></i>
-            ) : (
-                <i aria-hidden="true" className="fa-solid fa-location-dot text-teal-700"></i>
-            )}
-            {text}
-        </span>
-    );
-}
-
-function ListSkeleton() {
-    return (
-        <div role="status" className="grid animate-pulse gap-3">
-            <span className="sr-only">Finding services...</span>
-            {[0, 1, 2].map((index) => (
-                <div key={index} className="rounded-2xl border border-gray-200 p-5">
-                    <div className="flex gap-4">
-                        <div className="h-11 w-11 rounded-xl bg-gray-100"></div>
-                        <div className="flex-1 space-y-2">
-                            <div className="h-3 w-20 rounded bg-gray-100"></div>
-                            <div className="h-5 w-40 rounded bg-gray-100"></div>
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
+                Searching this area...
+            </span>
+        );
+    }
+    if (data?.mode === 'top' && data.total > data.recommendations.length) {
+        return (
+            <button
+                type="button"
+                onClick={onZoomIn}
+                className={`${chip} text-gray-800 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700`}
+            >
+                <i aria-hidden="true" className="fa-solid fa-magnifying-glass-plus text-teal-700"></i>
+                Showing the top {data.recommendations.length}. Zoom in for all {data.total}
+            </button>
+        );
+    }
+    return null;
 }

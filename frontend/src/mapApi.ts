@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { MapBounds, MapRecommendations } from './types';
+import { SERVICE_CATEGORIES } from './components/ui';
+import type { CatalogItem, MapBounds, MapRecommendations } from './types';
 
 // The map opens on Chulalongkorn University.
 export const CHULA = { lat: 13.7384, lng: 100.532 };
@@ -143,6 +144,86 @@ async function fetchMap(
         if (oldest !== undefined) cache.delete(oldest);
     }
     return data;
+}
+
+// The catalog, fetched once per session.
+let catalogRequest: Promise<CatalogItem[]> | null = null;
+
+function loadCatalog(): Promise<CatalogItem[]> {
+    catalogRequest ??= fetch('/api/catalog')
+        .then((response) => {
+            if (!response.ok) throw new Error('Could not load the catalog.');
+            return response.json() as Promise<CatalogItem[]>;
+        })
+        .catch((error: unknown) => {
+            catalogRequest = null;
+            throw error;
+        });
+    return catalogRequest;
+}
+
+// The categories that have a service for this species, so a cat owner is
+// not offered dog walking. Null until the catalog loads; every category if
+// it can't.
+export function useCategoriesFor(species: string): string[] | null {
+    const [offered, setOffered] = useState<Set<string> | null>(null);
+    useEffect(() => {
+        let active = true;
+        const wanted = species.toLowerCase();
+        loadCatalog()
+            .then((catalog) => {
+                if (!active) return;
+                setOffered(
+                    new Set(
+                        catalog
+                            .filter((service) =>
+                                service.species.some((value) => value.toLowerCase() === wanted),
+                            )
+                            .map((service) => service.category),
+                    ),
+                );
+            })
+            .catch(() => {
+                if (active) setOffered(new Set(SERVICE_CATEGORIES));
+            });
+        return () => {
+            active = false;
+        };
+    }, [species]);
+    return offered && SERVICE_CATEGORIES.filter((category) => offered.has(category));
+}
+
+// How far past the outermost services the map may go, about 1 km.
+const AREA_MARGIN_DEGREES = 0.01;
+
+// The area the map is held to: every service and Chula, plus a margin.
+// Null until the catalog loads, or if it can't, and then the map is free.
+export function useServiceArea(): MapBounds | null {
+    const [area, setArea] = useState<MapBounds | null>(null);
+    useEffect(() => {
+        let active = true;
+        loadCatalog()
+            .then((catalog) => {
+                if (!active) return;
+                const points = [
+                    CHULA,
+                    ...catalog.flatMap((service) => service.location ?? []),
+                ];
+                const lats = points.map((point) => point.lat);
+                const lngs = points.map((point) => point.lng);
+                setArea({
+                    minLat: Math.min(...lats) - AREA_MARGIN_DEGREES,
+                    minLng: Math.min(...lngs) - AREA_MARGIN_DEGREES,
+                    maxLat: Math.max(...lats) + AREA_MARGIN_DEGREES,
+                    maxLng: Math.max(...lngs) + AREA_MARGIN_DEGREES,
+                });
+            })
+            .catch(() => undefined);
+        return () => {
+            active = false;
+        };
+    }, []);
+    return area;
 }
 
 // Fetches recommendations for the visible area. While a new area loads, the
