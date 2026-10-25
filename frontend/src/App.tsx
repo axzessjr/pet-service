@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router';
+import { Routes, Route, Navigate, useLocation } from 'react-router';
 import { CatalogPage } from './pages/CatalogPage';
 import { LoginPage } from './pages/LoginPage';
 import { MyReviewsPage } from './pages/MyReviewsPage';
@@ -49,8 +49,12 @@ function App() {
         setLoggedIn(false);
     }
 
+    // The map page needs the room; the other pages read better narrower.
+    const { pathname } = useLocation();
+    const wide = pathname.startsWith('/recommendations');
+
     return (
-        <div className="mx-auto max-w-5xl px-4 py-5 font-sans sm:px-6">
+        <div className={`mx-auto px-4 py-5 font-sans sm:px-6 ${wide ? 'max-w-7xl' : 'max-w-5xl'}`}>
             {/* Pass the state to the Header! */}
             {isLoggedIn && <> <Header isLoggedIn={isLoggedIn} currentUser={currentUser} onLogout={handleLogout} /> </>}
 

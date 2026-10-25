@@ -5,7 +5,7 @@ import type { User } from '../App';
 import { ReviewDialog } from '../components/ReviewDialog';
 import { RatingSummary } from '../components/Stars';
 import { ServiceReviewsDialog } from '../components/ServiceReviewsDialog';
-import { primaryButtonClass, speciesLabel } from '../components/ui';
+import { formatPrice, primaryButtonClass, speciesLabel } from '../components/ui';
 import { listRatings, ownerIdOf } from '../reviewApi';
 
 async function loadCatalog(signal?: AbortSignal): Promise<CatalogItem[]> {
@@ -177,7 +177,7 @@ export function CatalogPage({ currentUser }: CatalogPageProps) {
                                 </div>
                                 <div className="space-y-2">
                                     <strong className="block text-green-600 text-xl font-bold">
-                                        ${service.price}
+                                        {formatPrice(service.price)}
                                     </strong>
                                     <RatingSummary
                                         averageRating={rating?.averageRating ?? 0}

@@ -43,3 +43,34 @@ describe('RecommendationController', () => {
         );
     });
 });
+
+describe('RecommendationController map route', () => {
+    const recommendForMap = jest.fn();
+    const controller = new RecommendationController({
+        recommendForMap,
+    } as unknown as RecommendationService);
+
+    beforeEach(() => recommendForMap.mockReset());
+
+    it('parses the query and passes it on', () => {
+        void controller.getMapForPet(3, {
+            minLat: '13.73',
+            minLng: '100.52',
+            maxLat: '13.75',
+            maxLng: '100.54',
+            zoom: '13',
+            q: 'groom',
+        });
+        expect(recommendForMap).toHaveBeenCalledWith(
+            3,
+            expect.objectContaining({ zoom: 13, q: 'groom' }),
+        );
+    });
+
+    it('rejects a bad query before calling the service', () => {
+        expect(() => controller.getMapForPet(3, { zoom: '13' })).toThrow(
+            'minLat is required',
+        );
+        expect(recommendForMap).not.toHaveBeenCalled();
+    });
+});
