@@ -2,10 +2,9 @@ export function Footer() {
     const currentYear = new Date().getFullYear();
 
     return (
-        <div className="border-t h-[100px] mt-10 pt-5">
+        <footer className="mt-10 border-t border-gray-200 py-6 text-sm text-gray-600">
             Copyright {currentYear} All rights reserved by
-            <span className="text-green-700 ml-1 font-bold">SigSven Team</span>
-
-        </div>
+            <span className="ml-1 font-bold text-teal-800">SigSven Team</span>
+        </footer>
     )
 }

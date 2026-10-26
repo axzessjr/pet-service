@@ -41,6 +41,8 @@ interface ReviewFormProps {
     review?: Review;
     // A new review starts by choosing one of these services.
     services?: CatalogItem[];
+    // Starts the form on this service, e.g. from a service's own Review button.
+    initialServiceId?: number;
     // The owner's pets; the form offers those the chosen service supports.
     pets?: Pet[];
     busy: boolean;
@@ -65,6 +67,7 @@ export function ReviewForm({
     idPrefix,
     review,
     services = [],
+    initialServiceId,
     pets = [],
     busy,
     error,
@@ -72,7 +75,9 @@ export function ReviewForm({
     onCancel,
 }: ReviewFormProps) {
     const id = (name: string) => `${idPrefix}-${name}`;
-    const [serviceId, setServiceId] = useState('');
+    const [serviceId, setServiceId] = useState(
+        initialServiceId ? String(initialServiceId) : '',
+    );
     // null until the owner picks; until then the first eligible pet is used,
     // which also covers pets that finish loading after a service is chosen.
     const [petChoice, setPetChoice] = useState<string | null>(null);
@@ -497,7 +502,7 @@ export function ReviewForm({
                                     }
                                     disabled={disabled}
                                     aria-label={`Remove saved photo ${index + 1}`}
-                                    className="absolute right-1 top-1 min-h-9 min-w-9 rounded-full border-0 bg-black/70 text-white hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+                                    className="absolute right-1 top-1 min-h-9 min-w-9 rounded-full border-0 bg-black/70 text-snow hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
                                 >
                                     <i aria-hidden="true" className="fa-solid fa-xmark"></i>
                                 </button>
@@ -519,7 +524,7 @@ export function ReviewForm({
                                     }
                                     disabled={disabled}
                                     aria-label={`Remove new photo ${index + 1}`}
-                                    className="absolute right-1 top-1 min-h-9 min-w-9 rounded-full border-0 bg-black/70 text-white hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+                                    className="absolute right-1 top-1 min-h-9 min-w-9 rounded-full border-0 bg-black/70 text-snow hover:bg-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
                                 >
                                     <i aria-hidden="true" className="fa-solid fa-xmark"></i>
                                 </button>

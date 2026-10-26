@@ -2,6 +2,160 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Pawpal colours, from the "Rescue" palette: teal #469387, orange #e69739,
+ * yellow #efc65d and sky #aad3dc. Tailwind's gray, teal, amber, red, green,
+ * blue and white read these variables (see tailwind.config.js), so every
+ * existing class follows the theme. Dark mode flips each scale, so "white"
+ * becomes the dark surface and "gray-900" the light text. Every text pair the
+ * app uses keeps at least 4.5:1 contrast in both modes.
+ */
+@layer base {
+  :root {
+    color-scheme: light;
+    --page: 255 255 255;
+    --color-white: 255 255 255;
+    --color-gray-50: 245 248 247;
+    --color-gray-100: 238 242 241;
+    --color-gray-200: 221 229 227;
+    --color-gray-300: 195 207 204;
+    --color-gray-400: 149 163 160;
+    --color-gray-500: 102 115 111;
+    --color-gray-600: 74 88 86;
+    --color-gray-700: 54 66 63;
+    --color-gray-800: 36 48 45;
+    --color-gray-900: 20 32 30;
+    --color-gray-950: 11 19 17;
+    --color-teal-50: 238 247 245;
+    --color-teal-100: 215 237 232;
+    --color-teal-200: 185 220 213;
+    --color-teal-300: 140 198 187;
+    --color-teal-400: 98 174 159;
+    --color-teal-500: 70 147 135;
+    --color-teal-600: 58 127 116;
+    --color-teal-700: 47 111 101;
+    --color-teal-800: 37 90 82;
+    --color-teal-900: 31 74 68;
+    --color-teal-950: 18 48 44;
+    --color-amber-50: 253 246 230;
+    --color-amber-100: 251 239 205;
+    --color-amber-200: 247 220 147;
+    --color-amber-300: 239 198 93;
+    --color-amber-400: 234 173 72;
+    --color-amber-500: 230 151 57;
+    --color-amber-600: 201 122 34;
+    --color-amber-700: 168 98 26;
+    --color-amber-800: 138 79 12;
+    --color-amber-900: 110 63 11;
+    --color-amber-950: 61 44 0;
+    --color-red-50: 254 241 239;
+    --color-red-100: 253 224 220;
+    --color-red-200: 244 199 192;
+    --color-red-300: 238 161 149;
+    --color-red-400: 229 112 95;
+    --color-red-500: 214 69 50;
+    --color-red-600: 194 49 31;
+    --color-red-700: 180 35 24;
+    --color-red-800: 145 32 24;
+    --color-red-900: 122 29 22;
+    --color-red-950: 66 16 11;
+    --color-green-50: 237 247 241;
+    --color-green-100: 213 238 223;
+    --color-green-200: 173 224 193;
+    --color-green-300: 124 203 156;
+    --color-green-400: 76 175 118;
+    --color-green-500: 47 148 89;
+    --color-green-600: 35 122 72;
+    --color-green-700: 29 101 60;
+    --color-green-800: 26 82 51;
+    --color-green-900: 22 68 43;
+    --color-green-950: 11 38 24;
+    --color-blue-50: 238 247 249;
+    --color-blue-100: 227 241 244;
+    --color-blue-200: 207 231 236;
+    --color-blue-300: 170 211 220;
+    --color-blue-400: 127 185 198;
+    --color-blue-500: 79 151 168;
+    --color-blue-600: 47 118 134;
+    --color-blue-700: 37 95 108;
+    --color-blue-800: 30 79 88;
+    --color-blue-900: 23 63 71;
+    --color-blue-950: 14 40 46;
+  }
+
+  :root.dark {
+    color-scheme: dark;
+    --page: 18 26 25;
+    --color-white: 26 38 36;
+    --color-gray-50: 31 45 42;
+    --color-gray-100: 36 51 47;
+    --color-gray-200: 44 61 58;
+    --color-gray-300: 61 82 78;
+    --color-gray-400: 93 110 106;
+    --color-gray-500: 138 154 150;
+    --color-gray-600: 169 184 181;
+    --color-gray-700: 196 208 205;
+    --color-gray-800: 219 228 225;
+    --color-gray-900: 232 239 237;
+    --color-gray-950: 243 247 246;
+    --color-teal-50: 23 51 48;
+    --color-teal-100: 28 61 57;
+    --color-teal-200: 43 90 83;
+    --color-teal-300: 61 122 112;
+    --color-teal-400: 79 154 141;
+    --color-teal-500: 95 176 162;
+    --color-teal-600: 108 192 178;
+    --color-teal-700: 108 192 178;
+    --color-teal-800: 134 207 194;
+    --color-teal-900: 168 221 211;
+    --color-teal-950: 205 238 232;
+    --color-amber-50: 46 36 16;
+    --color-amber-100: 58 45 18;
+    --color-amber-200: 90 68 24;
+    --color-amber-300: 138 106 34;
+    --color-amber-400: 201 154 62;
+    --color-amber-500: 230 151 57;
+    --color-amber-600: 234 173 72;
+    --color-amber-700: 240 176 102;
+    --color-amber-800: 243 194 127;
+    --color-amber-900: 247 217 163;
+    --color-amber-950: 251 236 208;
+    --color-red-50: 58 29 26;
+    --color-red-100: 74 36 32;
+    --color-red-200: 107 44 37;
+    --color-red-300: 143 58 48;
+    --color-red-400: 196 80 63;
+    --color-red-500: 229 112 95;
+    --color-red-600: 240 127 110;
+    --color-red-700: 255 138 122;
+    --color-red-800: 255 157 143;
+    --color-red-900: 255 188 178;
+    --color-red-950: 255 220 214;
+    --color-green-50: 22 48 42;
+    --color-green-100: 27 58 49;
+    --color-green-200: 36 80 63;
+    --color-green-300: 47 106 82;
+    --color-green-400: 63 138 106;
+    --color-green-500: 86 168 131;
+    --color-green-600: 111 191 152;
+    --color-green-700: 134 207 171;
+    --color-green-800: 163 220 191;
+    --color-green-900: 194 233 212;
+    --color-green-950: 224 245 234;
+    --color-blue-50: 20 38 43;
+    --color-blue-100: 24 48 58;
+    --color-blue-200: 33 65 74;
+    --color-blue-300: 45 88 98;
+    --color-blue-400: 74 133 148;
+    --color-blue-500: 106 167 181;
+    --color-blue-600: 140 193 204;
+    --color-blue-700: 170 211 220;
+    --color-blue-800: 195 225 231;
+    --color-blue-900: 219 238 242;
+    --color-blue-950: 238 247 249;
+  }
+}
+
 @layer utilities {
     /* For rows you swipe sideways, such as the category chips on phones. */
     .scrollbar-none {
@@ -12,10 +166,24 @@
     }
 }
 
-/* We deleted all the dark mode code that Vite generated! */
 body {
-    background-color: #ffffff; /* pure white background */
-    color: #333333; /* dark gray text */
+    background-color: rgb(var(--page));
+    color: rgb(var(--color-gray-900));
     margin: 0;
     min-height: 100vh;
+}
+
+/* Dim and invert the map tiles in dark mode so the map doesn't glare. */
+.dark .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+}
+.dark .leaflet-container {
+    background: rgb(var(--page));
+}
+.dark .leaflet-control-attribution {
+    background: rgb(var(--color-white) / 0.85);
+    color: rgb(var(--color-gray-700));
+}
+.dark .leaflet-control-attribution a {
+    color: rgb(var(--color-teal-800));
 }

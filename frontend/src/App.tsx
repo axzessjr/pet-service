@@ -7,6 +7,7 @@ import { RecommendationsPage } from './pages/RecommendationsPage';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { useState } from 'react';
+import { HOME_PATH } from './routes';
 import './App.css';
 
 export interface ProtectedRouteProps {
@@ -23,15 +24,12 @@ export interface User {
 
 function ProtectedRoute({ isLoggedIn, children }: ProtectedRouteProps) {
     if (!isLoggedIn) {
-        // Not logged in? Kick them back to the login page!
         return <Navigate to="/" replace />
     }
-    // Logged in? Render the page
     return <>{children}</>;
 }
 
 function App() {
-    // const [isLoggedIn, setLoggedIn] = useState<boolean>(false);
     const [isLoggedIn, setLoggedIn] = useState<boolean>(() => {
         return localStorage.getItem('isLoggedIn') === 'true';
     });
@@ -47,56 +45,60 @@ function App() {
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('userInfo');
         setLoggedIn(false);
+        setCurrentUser(null);
+    }
+
+    // After the profile page saves new account details.
+    const handleUserUpdated = (user: User) => {
+        localStorage.setItem('userInfo', JSON.stringify(user));
+        setCurrentUser(user);
     }
 
     // The map page needs the room; the other pages read better narrower.
     const { pathname } = useLocation();
     const wide = pathname.startsWith('/recommendations');
 
+    if (!isLoggedIn) {
+        return (
+            <Routes>
+                <Route path="/" element={<LoginPage setLoggedIn={setLoggedIn} setCurrentUser={setCurrentUser} />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+        );
+    }
+
     return (
         <div className={`mx-auto px-4 py-5 font-sans sm:px-6 ${wide ? 'max-w-7xl' : 'max-w-5xl'}`}>
-            {/* Pass the state to the Header! */}
-            {isLoggedIn && <> <Header isLoggedIn={isLoggedIn} currentUser={currentUser} onLogout={handleLogout} /> </>}
+            <Header currentUser={currentUser} onLogout={handleLogout} />
 
-            {/* This is where the pages change based on the URL! */}
             <Routes>
-                {/* Public route */}
-                {!isLoggedIn && (
-                    <Route path="/" element={<LoginPage setLoggedIn={setLoggedIn} setCurrentUser={setCurrentUser} />} />
-                )}
+                <Route path={HOME_PATH} element={
+                    <ProtectedRoute isLoggedIn={isLoggedIn}>
+                        <RecommendationsPage currentUser={currentUser} />
+                    </ProtectedRoute>}
+                />
+                <Route path="/catalog" element={
+                    <ProtectedRoute isLoggedIn={isLoggedIn}>
+                        <CatalogPage currentUser={currentUser} />
+                    </ProtectedRoute>}
+                />
+                <Route path="/reviews" element={
+                    <ProtectedRoute isLoggedIn={isLoggedIn}>
+                        <MyReviewsPage currentUser={currentUser} />
+                    </ProtectedRoute>}
+                />
+                <Route path="/profile" element={
+                    <ProtectedRoute isLoggedIn={isLoggedIn}>
+                        <ProfilePage currentUser={currentUser} onUserUpdated={handleUserUpdated} />
+                    </ProtectedRoute>}
+                />
 
-                {/* Protected routes */}
-                {isLoggedIn && (
-                    <>
-                        <Route path="/catalog" element={
-                            <ProtectedRoute isLoggedIn={isLoggedIn}>
-                                <CatalogPage currentUser={currentUser} />
-                            </ProtectedRoute>}
-                        />
-                        <Route path="/recommendations" element={
-                            <ProtectedRoute isLoggedIn={isLoggedIn}>
-                                <RecommendationsPage currentUser={currentUser} />
-                            </ProtectedRoute>}
-                        />
-                        <Route path="/reviews" element={
-                            <ProtectedRoute isLoggedIn={isLoggedIn}>
-                                <MyReviewsPage currentUser={currentUser} />
-                            </ProtectedRoute>}
-                        />
-                        <Route path="/profile" element={
-                            <ProtectedRoute isLoggedIn={isLoggedIn}>
-                                <ProfilePage currentUser={currentUser} />
-                            </ProtectedRoute>}
-                        />
-                    </>
-                )}
-
-                {/* Fallback: redirect unknown paths */}
-                <Route path="*" element={<Navigate to={isLoggedIn ? "/catalog" : "/"} replace />} />
+                {/* "/" and unknown paths go home. */}
+                <Route path="*" element={<Navigate to={HOME_PATH} replace />} />
             </Routes>
 
-            {isLoggedIn && <> <Footer /> </>}
-        </div >
+            <Footer />
+        </div>
     );
 }
 

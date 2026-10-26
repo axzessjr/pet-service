@@ -55,22 +55,23 @@ export const SERVICE_CATEGORIES = [
     'Veterinary',
 ];
 
-// Map pin and card colours; all keep white text readable (4.5:1 or better).
+// Map pin and card colours, tuned to the Rescue palette. All keep white text
+// readable (5.8:1 or better) in light and dark mode.
 export function categoryColor(category: string): string {
     const colors: Record<string, string> = {
-        walking: '#0f766e',
-        grooming: '#a21caf',
-        sitting: '#1d4ed8',
-        training: '#b45309',
-        enrichment: '#15803d',
-        wellness: '#be123c',
-        veterinary: '#6d28d9',
+        walking: '#2f6f65',
+        grooming: '#8a3b72',
+        sitting: '#255f6c',
+        training: '#8a4f0c',
+        enrichment: '#3d6b2a',
+        wellness: '#a3341f',
+        veterinary: '#5b4a8b',
     };
-    return colors[category.toLowerCase()] ?? '#374151';
+    return colors[category.toLowerCase()] ?? '#36423f';
 }
 
 // For services that cover none of the pet's needs.
-export const UNMATCHED_COLOR = '#6b7280';
+export const UNMATCHED_COLOR = '#66736f';
 
 // Cosine similarity from the recommender, 0 to 1.
 export function matchLabel(score: number): string {
