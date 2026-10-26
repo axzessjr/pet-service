@@ -5,6 +5,15 @@
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Pawpal | Pet services</title>
+        <!-- Set light or dark mode before the page paints, so it never flashes. -->
+        <script>
+            (function () {
+                var saved = null;
+                try { saved = localStorage.getItem('theme'); } catch (e) {}
+                var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (dark) document.documentElement.classList.add('dark');
+            })();
+        </script>
         <!-- Add Font Awesome for icons! -->
         <link
             rel="stylesheet"

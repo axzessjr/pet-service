@@ -31,7 +31,7 @@ const TILES = {
 
 const CAMPUS_ICON = L.divIcon({
     className: '',
-    html: `<span class="flex h-9 w-9 items-center justify-center rounded-full border-[3px] border-white bg-pink-700 text-sm text-white shadow-lg"><i class="fa-solid fa-building-columns"></i></span>`,
+    html: `<span class="flex h-9 w-9 items-center justify-center rounded-full border-[3px] border-white bg-pink-700 text-sm text-snow shadow-lg"><i class="fa-solid fa-building-columns"></i></span>`,
     iconSize: [36, 36],
     iconAnchor: [18, 18],
     popupAnchor: [0, -18],
@@ -72,7 +72,7 @@ function pinIcon(
         : '';
     return L.divIcon({
         className: '',
-        html: `<span class="relative flex items-center justify-center rounded-full border-2 border-white text-white transition-transform ${ring}" style="width:${size}px;height:${size}px;background:${color}">${label}${star}</span>`,
+        html: `<span class="relative flex items-center justify-center rounded-full border-2 border-white text-snow transition-transform ${ring}" style="width:${size}px;height:${size}px;background:${color}">${label}${star}</span>`,
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
     });

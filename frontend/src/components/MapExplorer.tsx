@@ -25,6 +25,7 @@ interface MapExplorerProps {
     params: URLSearchParams;
     updateParams: (patch: Record<string, string | null>) => void;
     onShowReviews: (item: MapRecommendation) => void;
+    onWriteReview: (item: MapRecommendation) => void;
 }
 
 // Search, results, and map in one frame. Wide screens put the filters and
@@ -35,6 +36,7 @@ export function MapExplorer({
     params,
     updateParams,
     onShowReviews,
+    onWriteReview,
 }: MapExplorerProps) {
     const isDesktop = useMediaQuery(DESKTOP_QUERY);
     const filters = readFilters(params);
@@ -157,6 +159,22 @@ export function MapExplorer({
     }
 
     const recommendations = data?.recommendations ?? [];
+
+    // "Show on map" opens here with ?service=<id>: once the first results
+    // arrive, open that service. (Adjusting state while rendering, so the
+    // details show in the same paint as the results.)
+    const [focusId, setFocusId] = useState(() => Number(params.get('service')) || null);
+    if (focusId !== null && data) {
+        setFocusId(null);
+        const match = data.recommendations.find((item) => item.service.id === focusId);
+        if (match) setSelected(match);
+    }
+    // Then drop the parameter, so a refresh doesn't reopen it.
+    const hasFocusParam = params.has('service');
+    useEffect(() => {
+        if (focusId === null && hasFocusParam) updateParams({ service: null });
+    }, [focusId, hasFocusParam, updateParams]);
+
     const first = recommendations[0];
     const bestId =
         first && first.matched && pet.needs.length > 0 ? first.service.id : null;
@@ -206,6 +224,7 @@ export function MapExplorer({
                     onSelect={select}
                     onBack={() => setSelected(null)}
                     onShowReviews={onShowReviews}
+                    onWriteReview={onWriteReview}
                     isDesktop={isDesktop}
                 />
                 <div className="absolute inset-0 lg:static lg:col-start-1 lg:row-span-2 lg:row-start-1">

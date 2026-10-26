@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import type { MapRecommendation, MapRecommendations, Pet } from '../types';
 import { EmptyState } from './EmptyState';
 import { RatingSummary } from './Stars';
+import { useSavedServices } from '../savedServices';
 import {
     budgetNote,
     categoryColor,
@@ -37,6 +38,7 @@ interface ResultsPanelProps {
     onSelect: (item: MapRecommendation) => void;
     onBack: () => void;
     onShowReviews: (item: MapRecommendation) => void;
+    onWriteReview: (item: MapRecommendation) => void;
     // Beside the map on wide screens; a sheet over the map on phones.
     isDesktop: boolean;
 }
@@ -60,6 +62,7 @@ export function ResultsPanel({
     onSelect,
     onBack,
     onShowReviews,
+    onWriteReview,
     isDesktop,
 }: ResultsPanelProps) {
     const [sort, setSort] = useState<SortKey>('match');
@@ -137,6 +140,7 @@ export function ResultsPanel({
                     onNext={() => onSelect(ordered[(index + 1) % ordered.length])}
                     onBack={onBack}
                     onShowReviews={() => onShowReviews(selected)}
+                    onWriteReview={() => onWriteReview(selected)}
                 />
             </section>
         );
@@ -418,12 +422,12 @@ function CategoryBadge({
     return (
         <span
             aria-hidden="true"
-            className={`relative flex shrink-0 items-center justify-center rounded-xl text-white ${large ? 'h-12 w-12 text-xl' : 'h-10 w-10'}`}
+            className={`relative flex shrink-0 items-center justify-center rounded-xl text-snow ${large ? 'h-12 w-12 text-xl' : 'h-10 w-10'}`}
             style={{ backgroundColor: matched ? categoryColor(category) : UNMATCHED_COLOR }}
         >
             <i className={`fa-solid ${categoryIcon(category)}`}></i>
             {rank !== undefined && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-gray-900 px-1 text-xs font-bold">
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-gray-900 px-1 text-xs font-bold text-white">
                     {rank}
                 </span>
             )}
@@ -459,6 +463,7 @@ interface ServiceDetailProps {
     onNext: () => void;
     onBack: () => void;
     onShowReviews: () => void;
+    onWriteReview: () => void;
 }
 
 function ServiceDetail({
@@ -471,8 +476,13 @@ function ServiceDetail({
     onNext,
     onBack,
     onShowReviews,
+    onWriteReview,
 }: ServiceDetailProps) {
     const { service, score, matched, matchedNeeds, averageRating, reviewCount } = item;
+    const saved = useSavedServices(pet.id);
+    const isSaved = saved.isSaved(service.id);
+    // Only after a click here, so stepping to another service clears it.
+    const [savedNote, setSavedNote] = useState<{ id: number; text: string } | null>(null);
     const headingRef = useRef<HTMLHeadingElement>(null);
     const bodyRef = useRef<HTMLDivElement>(null);
     const percent = Math.round(score * 100);
@@ -619,19 +629,59 @@ function ServiceDetail({
                     {service.location.address}
                 </p>
 
-                <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-5 space-y-2">
                     <a
                         href={directionsUrl(service.location)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`${primaryButtonClass} inline-flex items-center`}
+                        className={`${primaryButtonClass} flex w-full items-center justify-center`}
                     >
                         <i aria-hidden="true" className="fa-solid fa-diamond-turn-right mr-2"></i>
                         Directions
                         <span className="sr-only"> (opens Google Maps in a new tab)</span>
                     </a>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            aria-pressed={isSaved}
+                            onClick={() => {
+                                saved.toggle(service.id);
+                                setSavedNote({
+                                    id: service.id,
+                                    text: isSaved
+                                        ? `Removed from ${pet.name}’s saved services.`
+                                        : `Saved to ${pet.name}’s list. Find it under Saved.`,
+                                });
+                            }}
+                            className={`${isSaved
+                                ? 'min-h-11 rounded-lg border border-teal-700 bg-teal-50 px-3 py-2 font-semibold text-teal-800 hover:bg-teal-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700'
+                                : `${secondaryButtonClass} px-3`} inline-flex items-center justify-center`}
+                        >
+                            <i aria-hidden="true" className={`${isSaved ? 'fa-solid' : 'fa-regular'} fa-bookmark mr-2`}></i>
+                            {isSaved ? 'Saved' : 'Save'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onWriteReview}
+                            className={`${secondaryButtonClass} inline-flex items-center justify-center px-3`}
+                        >
+                            <i aria-hidden="true" className="fa-regular fa-star mr-2 text-amber-700"></i>
+                            Write a review
+                        </button>
+                    </div>
+                    <p role="status" className="m-0 min-h-0 text-sm">
+                        {savedNote?.id === service.id && (
+                            <span className="block rounded-lg bg-blue-100 px-3 py-2 text-blue-900">
+                                {savedNote.text}
+                            </span>
+                        )}
+                    </p>
                     {reviewCount > 0 && (
-                        <button type="button" onClick={onShowReviews} className={secondaryButtonClass}>
+                        <button
+                            type="button"
+                            onClick={onShowReviews}
+                            className="mx-auto flex min-h-11 items-center rounded-lg border-0 bg-transparent px-3 font-semibold text-teal-800 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700"
+                        >
                             <i aria-hidden="true" className="fa-regular fa-comment mr-2"></i>
                             Read {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
                         </button>

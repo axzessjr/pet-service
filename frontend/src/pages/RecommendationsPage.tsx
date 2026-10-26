@@ -1,10 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import type { MapRecommendation, Pet } from '../types';
+import type { CatalogItem, MapRecommendation, Pet, Review } from '../types';
 import type { User } from '../App';
 import { EmptyState } from '../components/EmptyState';
 import { SavedListsDrawer } from '../components/SavedRecommendations';
 import { ServiceReviewsDialog } from '../components/ServiceReviewsDialog';
+import { ReviewDialog } from '../components/ReviewDialog';
+import { ownerIdOf } from '../reviewApi';
+import { useSavedServices } from '../savedServices';
 import {
     formatPrice,
     mapFrameHeightClass,
@@ -32,6 +35,11 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
     const [profileError, setProfileError] = useState('');
     const [reviewsFor, setReviewsFor] = useState<MapRecommendation | null>(null);
     const [savedOpen, setSavedOpen] = useState(false);
+    const [reviewing, setReviewing] = useState<MapRecommendation | null>(null);
+    const [reviewSaved, setReviewSaved] = useState<Review | null>(null);
+    // Bumped to reopen the map somewhere else, e.g. at a saved service.
+    const [mapVersion, setMapVersion] = useState(0);
+    const ownerId = ownerIdOf(currentUser);
 
     useEffect(() => {
         if (!currentUser?.id) return;
@@ -64,6 +72,7 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
     const requestedId = Number(searchParams.get('pet'));
     const selectedPet =
         pets.find((pet) => pet.id === requestedId) ?? pets[0] ?? null;
+    const savedServices = useSavedServices(selectedPet?.id ?? 0);
 
     const updateParams = useCallback(
         (patch: Record<string, string | null>) =>
@@ -80,6 +89,18 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
             ),
         [setSearchParams],
     );
+
+    // Open the map at a service and show its details.
+    const showOnMap = (service: CatalogItem) => {
+        updateParams({
+            lat: service.location.lat.toFixed(5),
+            lng: service.location.lng.toFixed(5),
+            z: '17',
+            service: String(service.id),
+        });
+        setSavedOpen(false);
+        setMapVersion((value) => value + 1);
+    };
 
     return (
         <main>
@@ -134,31 +155,63 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
                                     className={`${secondaryButtonClass} inline-flex items-center px-3`}
                                 >
                                     <i aria-hidden="true" className="fa-regular fa-bookmark mr-2 text-teal-700"></i>
-                                    Saved lists
+                                    Saved
+                                    {savedServices.ids.length > 0 && (
+                                        <span className="ml-2 rounded-full bg-sun px-2 text-xs font-bold text-sun-ink">
+                                            {savedServices.ids.length}
+                                            <span className="sr-only"> saved services</span>
+                                        </span>
+                                    )}
                                 </button>
                             </div>
                         </div>
                         <NeedsSummary pet={selectedPet} />
                     </header>
 
+                    {reviewSaved && (
+                        <p role="status" className="mb-4 rounded-lg bg-green-50 p-3 text-green-900">
+                            <i aria-hidden="true" className="fa-solid fa-circle-check mr-2"></i>
+                            Thanks! Your review of {reviewSaved.service.title} is saved.{' '}
+                            <Link to="/reviews" className="font-semibold text-green-900 underline">
+                                My reviews
+                            </Link>
+                        </p>
+                    )}
+
                     <Suspense fallback={<FrameSkeleton />}>
                         {/* A new pet starts a new search. */}
                         <MapExplorer
-                            key={selectedPet.id}
+                            key={`${selectedPet.id}:${mapVersion}`}
                             pet={selectedPet}
                             params={searchParams}
                             updateParams={updateParams}
                             onShowReviews={setReviewsFor}
+                            onWriteReview={(item) => {
+                                setReviewSaved(null);
+                                setReviewing(item);
+                            }}
                         />
                     </Suspense>
 
                     {savedOpen && (
                         <SavedListsDrawer
                             pet={selectedPet}
+                            onShowOnMap={showOnMap}
                             onClose={() => setSavedOpen(false)}
                         />
                     )}
                 </>
+            )}
+
+            {reviewing && ownerId && (
+                <ReviewDialog
+                    ownerId={ownerId}
+                    services={[reviewing.service]}
+                    initialServiceId={reviewing.service.id}
+                    pets={pets}
+                    onSaved={setReviewSaved}
+                    onClose={() => setReviewing(null)}
+                />
             )}
 
             {reviewsFor && (

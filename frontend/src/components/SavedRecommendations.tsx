@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CatalogItem, Pet, SavedRecommendation } from '../types';
+import { useSavedServices } from '../savedServices';
 import {
     dangerButtonClass,
     dangerTextButtonClass,
@@ -398,12 +399,13 @@ const SNAPSHOT_SIZE = 10;
 
 interface SavedListsDrawerProps {
     pet: Pet;
+    onShowOnMap: (service: CatalogItem) => void;
     onClose: () => void;
 }
 
 // A panel from the right edge. Mount it to open it; it calls onClose on
 // Escape, the close button, or a click on the backdrop.
-export function SavedListsDrawer({ pet, onClose }: SavedListsDrawerProps) {
+export function SavedListsDrawer({ pet, onShowOnMap, onClose }: SavedListsDrawerProps) {
     const dialogRef = useRef<HTMLDialogElement>(null);
     const [version, setVersion] = useState(0);
     const [saving, setSaving] = useState(false);
@@ -452,11 +454,11 @@ export function SavedListsDrawer({ pet, onClose }: SavedListsDrawerProps) {
                 <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 p-5">
                     <div>
                         <h3 id="saved-lists-title" className="m-0 text-xl font-bold text-gray-900">
-                            Saved lists for {pet.name}
+                            Saved for {pet.name}
                         </h3>
                         <p className="m-0 mt-1 text-sm text-gray-600">
-                            Snapshots to compare later. Update one any time to
-                            use {pet.name}’s current needs and the latest services.
+                            Services you saved, and snapshots of {pet.name}’s top
+                            matches to compare later.
                         </p>
                     </div>
                     <button
@@ -470,6 +472,11 @@ export function SavedListsDrawer({ pet, onClose }: SavedListsDrawerProps) {
                 </div>
 
                 <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+                    <SavedServices pet={pet} onShowOnMap={onShowOnMap} />
+
+                    <h4 className="m-0 border-t border-gray-200 pt-5 text-base font-bold text-gray-900">
+                        Saved lists
+                    </h4>
                     <div className="rounded-xl border border-teal-100 bg-teal-50 p-4">
                         <p className="m-0 font-semibold text-gray-900">
                             Save {pet.name}’s top {SNAPSHOT_SIZE} matches
@@ -504,5 +511,84 @@ export function SavedListsDrawer({ pet, onClose }: SavedListsDrawerProps) {
                 </div>
             </div>
         </dialog>
+    );
+}
+
+// Services saved one at a time from a service's details.
+function SavedServices({
+    pet,
+    onShowOnMap,
+}: {
+    pet: Pet;
+    onShowOnMap: (service: CatalogItem) => void;
+}) {
+    const { ids, remove } = useSavedServices(pet.id);
+    const [catalog, setCatalog] = useState<CatalogItem[] | null>(null);
+
+    useEffect(() => {
+        if (ids.length === 0) return;
+        const controller = new AbortController();
+        fetch('/api/catalog', { signal: controller.signal })
+            .then((response) =>
+                response.ok ? (response.json() as Promise<CatalogItem[]>) : [],
+            )
+            .then(setCatalog)
+            .catch(() => {
+                if (!controller.signal.aborted) setCatalog([]);
+            });
+        return () => controller.abort();
+    }, [ids.length]);
+
+    const byId = new Map((catalog ?? []).map((item) => [item.id, item]));
+    // A service removed from the catalog since it was saved is skipped.
+    const services = ids.flatMap((id) => byId.get(id) ?? []);
+
+    return (
+        <section aria-labelledby="saved-services-title">
+            <h4 id="saved-services-title" className="m-0 mb-3 text-base font-bold text-gray-900">
+                Saved services
+                {ids.length > 0 && <span className="ml-2 font-normal text-gray-600">({ids.length})</span>}
+            </h4>
+            {ids.length === 0 ? (
+                <p className="m-0 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+                    Nothing saved yet. Open a service on the map and choose
+                    <strong className="font-semibold"> Save</strong>.
+                </p>
+            ) : catalog === null ? (
+                <p role="status" className="m-0 text-sm text-gray-600">Loading saved services…</p>
+            ) : (
+                <ul className="m-0 list-none space-y-2 p-0">
+                    {services.map((service) => (
+                        <li key={service.id} className="rounded-xl border border-gray-200 bg-white p-3">
+                            <p className="m-0 text-xs font-semibold uppercase tracking-wide text-teal-700">
+                                {service.category}
+                            </p>
+                            <p className="m-0 font-semibold text-gray-900">{service.title}</p>
+                            <p className="m-0 text-sm text-gray-600">
+                                By {service.provider} · {formatPrice(service.price)}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => onShowOnMap(service)}
+                                    className={`${secondaryButtonClass} inline-flex items-center px-3 text-sm`}
+                                >
+                                    <i aria-hidden="true" className="fa-solid fa-location-dot mr-2 text-teal-700"></i>
+                                    Show on map
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => remove(service.id)}
+                                    className={`${dangerTextButtonClass} px-3 text-sm`}
+                                >
+                                    Remove
+                                    <span className="sr-only"> {service.title}</span>
+                                </button>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
     );
 }
