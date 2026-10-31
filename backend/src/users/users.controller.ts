@@ -1,48 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, } from '@nestjs/common';
+import { Body, Controller, Param, ParseIntPipe, Patch } from '@nestjs/common';
 import { UsersService } from './users.service';
-
-interface CreateUserDto {
-    firstname: string,
-    lastname: string,
-    nickname: string,
-    email: string,
-    password: string
-}
-
-interface UpdateUserDto {
-    firstname: string,
-    lastname: string,
-    nickname: string
-}
+import type { UpdateAccountInput } from './users.service';
 
 @Controller('users')
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
 
-
-    // @Post()
-    // create(@Body() createUserDto: CreateUserDto) {
-    //     return this.usersService.create();
-    // }
-
-    // @Get()
-    // findAll() {
-    //     return this.usersService.findAll();
-    // }
-
-    // @Get(':id')
-    // findOne(@Param('id') id: string) {
-    //     return this.usersService.findOne(+id);
-    // }
-
-    // @Patch(':id')
-    // update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    //     //return this.usersService.update(+id, updateUserDto);
-
-    // }
-
-    // @Delete(':id')
-    // remove(@Param('id') id: string) {
-    //     return this.usersService.remove(+id);
-    // }
+    // PATCH /users/:id  { firstname, lastname, email }
+    // Returns the account as login does: { id, firstname, lastname, email }.
+    @Patch(':id')
+    update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateAccountInput) {
+        return this.usersService.updateAccount(id, body);
+    }
 }

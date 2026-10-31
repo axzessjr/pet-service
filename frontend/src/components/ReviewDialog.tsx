@@ -9,6 +9,8 @@ interface ReviewDialogProps {
     // `services`. An owner can review the same service after every visit.
     review?: Review;
     services?: CatalogItem[];
+    // Starts a new review on this service.
+    initialServiceId?: number;
     // The owner's pets; the form offers those the chosen service supports.
     pets?: Pet[];
     onSaved: (review: Review) => void;
@@ -21,6 +23,7 @@ export function ReviewDialog({
     ownerId,
     review,
     services,
+    initialServiceId,
     pets,
     onSaved,
     onClose,
@@ -87,7 +90,9 @@ export function ReviewDialog({
                         <p className="mb-0 mt-1 text-gray-600">
                             {review
                                 ? review.service.title
-                                : 'Choose the service you used, then tell others how the visit went.'}
+                                : initialServiceId
+                                  ? 'Tell other owners how the visit went.'
+                                  : 'Choose the service you used, then tell others how the visit went.'}
                         </p>
                     </div>
                     <button
@@ -104,6 +109,7 @@ export function ReviewDialog({
                     idPrefix={review ? `review-${review.id}` : 'review-new'}
                     review={review}
                     services={services}
+                    initialServiceId={initialServiceId}
                     pets={pets}
                     busy={busy}
                     error={error}

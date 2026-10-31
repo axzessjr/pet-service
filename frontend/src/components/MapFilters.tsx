@@ -112,12 +112,12 @@ export function MapFilters({
                                 type="button"
                                 aria-pressed={active}
                                 onClick={() => onChange({ category: active ? '' : category })}
-                                className={`${chipClass} ${active ? 'border-transparent text-white' : 'border-gray-300 bg-white text-gray-800 hover:border-gray-400'}`}
+                                className={`${chipClass} ${active ? 'border-transparent text-snow' : 'border-gray-300 bg-white text-gray-800 hover:border-gray-400'}`}
                                 style={active ? { backgroundColor: categoryColor(category) } : undefined}
                             >
                                 <i
                                     aria-hidden="true"
-                                    className={`fa-solid ${categoryIcon(category)} text-xs`}
+                                    className={`fa-solid ${categoryIcon(category)} text-xs dark:brightness-[1.9]`}
                                     style={active ? undefined : { color: categoryColor(category) }}
                                 ></i>
                                 {category}
