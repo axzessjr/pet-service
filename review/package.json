@@ -5,6 +5,8 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "db:check-cloud": "node scripts/check-cloud.cjs",
+    "db:migrate-atlas": "node scripts/migrate-to-atlas.cjs",
     "build": "nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",

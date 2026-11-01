@@ -8,7 +8,8 @@ services:
       RABBITMQ_DEFAULT_USER: pawpal
       RABBITMQ_DEFAULT_PASS: pawpal
     ports:
-      - "15672:15672" # management UI: http://localhost:15672
+      - "127.0.0.1:15672:15672" # management UI: http://localhost:15672
+      - "127.0.0.1:5672:5672" # native local services
     expose:
       - "5672"
     volumes:
@@ -27,10 +28,8 @@ services:
     expose:
       - "50051"
     environment:
-      RECOMMENDATION_DB_PATH: /data/recommendations.sqlite3
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in the root .env}
       RABBITMQ_URL: amqp://pawpal:pawpal@rabbitmq:5672
-    volumes:
-      - recommendation_data:/data
     # No dependency on RabbitMQ: the consumer reconnects on its own, and
     # recommendations keep working (with the last known ratings) while it is down.
     healthcheck:
@@ -40,12 +39,13 @@ services:
       retries: 10
       start_period: 20s
 
-  # Optional local MongoDB for working offline. Reviews normally use MongoDB
-  # Atlas (MONGODB_URL in review/.env). Start it with
-  # `docker compose --profile local-db up` and point MONGODB_URL at it.
+  # Migration source only. Normal operation uses Atlas from the root .env.
+  # Keep the old volume until its reviews and GridFS photos are migrated.
   review-db:
     image: mongo:8.0
-    profiles: ["local-db"]
+    profiles: ["migration"]
+    ports:
+      - "127.0.0.1:27018:27017" # migration tools on this computer only
     environment:
       MONGO_INITDB_ROOT_USERNAME: review
       MONGO_INITDB_ROOT_PASSWORD: review
@@ -64,17 +64,20 @@ services:
       dockerfile: review/Dockerfile
     expose:
       - "3001"
-    # MONGODB_URL (MongoDB Atlas connection string) and MONGODB_DB.
-    env_file:
-      - review/.env
+    volumes:
+      # Atlas X.509 client credential. Never copied into the image.
+      - type: bind
+        source: ./atlas-client.pem
+        target: /run/secrets/atlas-client.pem
+        read_only: true
+        bind:
+          create_host_path: false
     environment:
+      MONGODB_URL: ${MONGODB_URL:?Set MONGODB_URL in the root .env}
+      MONGODB_DB: ${MONGODB_DB:-reviews}
+      MONGODB_TLS_CERTIFICATE_KEY_FILE: /run/secrets/atlas-client.pem
       RABBITMQ_URL: amqp://pawpal:pawpal@rabbitmq:5672
-    # RabbitMQ is not required to start: events stay pending until it is up.
-    # review-db only runs with the local-db profile.
-    depends_on:
-      review-db:
-        condition: service_healthy
-        required: false
+    # RabbitMQ is not required to start: events stay pending in Atlas until it is up.
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5s
@@ -86,9 +89,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    env_file:
-      - backend/.env
     environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in the root .env}
       RECOMMENDATION_GRPC_URL: recommender:50051
       REVIEW_URL: http://review:3001
     ports:
@@ -116,6 +118,7 @@ services:
         condition: service_healthy
 
 volumes:
+  # Retained only to export pre-migration SQLite data; no running service mounts it.
   recommendation_data:
   review_data:
   rabbitmq_data:

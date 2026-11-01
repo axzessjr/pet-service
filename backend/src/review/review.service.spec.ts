@@ -1,4 +1,5 @@
 import { CatalogService } from '../catalog/catalog.service';
+import { CATALOG } from '../catalog/catalog.data';
 import { PetProfileService } from '../pet-profile/pet-profile.service';
 import { ReviewService } from './review.service';
 
@@ -45,7 +46,12 @@ describe('ReviewService', () => {
         fetchMock.mockReset();
         global.fetch = fetchMock;
         getPetById.mockReset().mockResolvedValue(pet);
-        service = new ReviewService(new CatalogService(), profile);
+        service = new ReviewService(
+            {
+                getCatalogItems: jest.fn().mockResolvedValue(CATALOG),
+            } as unknown as CatalogService,
+            profile,
+        );
     });
 
     it('adds service and pet snapshots and ignores ones sent by the client', async () => {

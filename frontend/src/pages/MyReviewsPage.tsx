@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import type { User } from '../App';
-import type { Review } from '../types';
+import type { Review, User } from '../types';
 import { ReviewDetails } from '../components/ReviewDetails';
 import { ReviewDialog } from '../components/ReviewDialog';
 import {

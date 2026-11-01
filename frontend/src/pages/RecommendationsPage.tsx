@@ -1,7 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import type { CatalogItem, MapRecommendation, Pet, Review } from '../types';
-import type { User } from '../App';
+import type { CatalogItem, MapRecommendation, Pet, Review, User } from '../types';
 import { EmptyState } from '../components/EmptyState';
 import { SavedListsDrawer } from '../components/SavedRecommendations';
 import { ServiceReviewsDialog } from '../components/ServiceReviewsDialog';

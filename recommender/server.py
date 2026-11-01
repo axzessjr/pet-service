@@ -10,6 +10,7 @@ import recommendation_pb2_grpc
 from engine import Pet, Service, recommend
 from events import start_consumer
 from store import RecommendationStore
+from config import database_url
 
 
 class RecommendationEngine(recommendation_pb2_grpc.RecommendationEngineServicer):
@@ -109,12 +110,7 @@ class RecommendationEngine(recommendation_pb2_grpc.RecommendationEngineServicer)
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-    store = RecommendationStore(
-        os.getenv(
-            "RECOMMENDATION_DB_PATH",
-            os.path.join(os.path.dirname(__file__), "recommendations.sqlite3"),
-        )
-    )
+    store = RecommendationStore(database_url())
     recommendation_pb2_grpc.add_RecommendationEngineServicer_to_server(
         RecommendationEngine(store), server
     )
@@ -124,7 +120,11 @@ def serve():
         raise RuntimeError(f"Could not bind gRPC server to {address}")
     server.start()
     print(f"Recommendation gRPC server listening on {address}", flush=True)
-    server.wait_for_termination()
+    try:
+        server.wait_for_termination()
+    finally:
+        server.stop(5).wait()
+        store.close()
 
 
 if __name__ == "__main__":

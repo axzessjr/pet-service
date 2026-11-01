@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
-import type { CatalogItem, Pet } from '../types';
-import type { User } from '../App';
+import type { CatalogItem, Pet, User } from '../types';
 import { EmptyState } from '../components/EmptyState';
 import {
     controlClass,
@@ -27,7 +26,8 @@ interface PetForm {
     maxPrice: string;
 }
 
-const EMPTY_FORM: PetForm = { name: '', species: 'dog', needs: [], maxPrice: '' };
+// New pets start with a ฿2,000 budget; 0 or an empty field means no limit.
+const EMPTY_FORM: PetForm = { name: '', species: 'dog', needs: [], maxPrice: '2000' };
 
 function readableTag(tag: string): string {
     const text = tag.replaceAll('-', ' ');

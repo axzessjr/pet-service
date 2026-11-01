@@ -5,7 +5,6 @@ import {
     MapContainer,
     Marker,
     Popup,
-    TileLayer,
     useMap,
     useMapEvents,
 } from 'react-leaflet';
@@ -20,14 +19,20 @@ import {
     type Viewport,
 } from '../mapApi';
 import { categoryColor, categoryIcon, formatPrice, matchLabel, UNMATCHED_COLOR } from './ui';
+import { MAP_STYLES, type MapStyle } from '../mapStyles';
+import { VectorBasemap, type BasemapStatus } from './VectorBasemap';
 
-// OpenStreetMap tiles, slightly softened so the coloured pins still stand out.
-const TILES = {
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    className: 'saturate-[.8]',
-};
+const MAP_STYLE_KEY = 'pawpal-map-style';
+
+function savedMapStyle(): MapStyle {
+    try {
+        const saved = localStorage.getItem(MAP_STYLE_KEY);
+        // Previous raster skins also move to the new, less detailed default.
+        return MAP_STYLES.find((style) => style === saved) ?? 'calm';
+    } catch {
+        return 'calm';
+    }
+}
 
 const CAMPUS_ICON = L.divIcon({
     className: '',
@@ -206,6 +211,8 @@ export function RecommendationMap({
     onSelect,
     onBackgroundClick,
 }: RecommendationMapProps) {
+    const [mapStyle, setMapStyle] = useState<MapStyle>(savedMapStyle);
+    const [basemapStatus, setBasemapStatus] = useState<BasemapStatus>('loading');
     const [map, setMap] = useState<L.Map | null>(null);
     const [locating, setLocating] = useState(false);
     const [locationNote, setLocationNote] = useState('');
@@ -226,6 +233,14 @@ export function RecommendationMap({
                 : null,
         [area],
     );
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(MAP_STYLE_KEY, mapStyle);
+        } catch {
+            // The style still works for this visit when storage is unavailable.
+        }
+    }, [mapStyle]);
 
     useEffect(() => {
         if (map) onReady(map);
@@ -297,7 +312,10 @@ export function RecommendationMap({
         'flex flex-col divide-y divide-gray-200 overflow-hidden rounded-lg shadow-md ring-1 ring-black/10';
 
     return (
-        <div className="relative isolate h-full w-full">
+        <div
+            className="recommendation-map relative isolate h-full w-full"
+            data-map-style={mapStyle}
+        >
             <MapContainer
                 ref={setMap}
                 center={[initialCenter.lat, initialCenter.lng]}
@@ -307,9 +325,9 @@ export function RecommendationMap({
                 // A hard edge at the area limit, rather than a rubber band.
                 maxBoundsViscosity={1}
                 zoomControl={false}
-                className="h-full w-full bg-gray-100"
+                className="h-full w-full"
             >
-                <TileLayer {...TILES} />
+                <VectorBasemap mapStyle={mapStyle} onStatus={setBasemapStatus} />
                 <ViewportWatcher onChange={onViewportChange} />
                 <SizeWatcher />
                 <AreaLimit area={areaBounds} />
@@ -357,7 +375,34 @@ export function RecommendationMap({
                 ))}
             </MapContainer>
 
-            <div className="pointer-events-none absolute inset-x-16 top-3 z-[1000] flex flex-col items-center gap-2">
+            <label className="absolute left-3 top-3 z-[1000] flex items-center gap-2 rounded-xl bg-white px-3 text-gray-900 shadow-md ring-1 ring-black/10">
+                <i aria-hidden="true" className="fa-solid fa-layer-group text-teal-700"></i>
+                <span className="text-xs font-medium text-gray-600">Map style</span>
+                <select
+                    value={mapStyle}
+                    onChange={(event) => {
+                        setBasemapStatus('loading');
+                        setMapStyle(event.target.value as MapStyle);
+                    }}
+                    className="min-h-11 cursor-pointer rounded-lg bg-white px-1 text-sm font-semibold text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+                >
+                    <option value="calm">Calm</option>
+                    <option value="streets">Streets</option>
+                    <option value="night">Night</option>
+                </select>
+            </label>
+
+            <div className="pointer-events-none absolute inset-x-16 top-16 z-[1000] flex flex-col items-center gap-2">
+                {basemapStatus !== 'ready' && (
+                    <p
+                        role="status"
+                        className="pointer-events-auto m-0 max-w-xs rounded-lg bg-white/95 px-3 py-2 text-center text-sm text-gray-800 shadow-md ring-1 ring-black/10"
+                    >
+                        {basemapStatus === 'loading'
+                            ? 'Loading map...'
+                            : 'Showing the standard map. Try another map style.'}
+                    </p>
+                )}
                 <div className="pointer-events-auto">{overlay}</div>
                 {locationNote && (
                     <p
