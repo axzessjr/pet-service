@@ -3,14 +3,28 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { PG_CONNECTION } from './../src/database/database.module';
+import { CATALOG } from './../src/catalog/catalog.data';
+import type { CatalogItem } from './../src/catalog/catalog.types';
 
-describe('AppController (e2e)', () => {
+describe('Catalog HTTP integration', () => {
     let app: INestApplication<App>;
+    const pool = { query: jest.fn() };
 
-    beforeEach(async () => {
+    beforeAll(async () => {
+        pool.query.mockReset().mockImplementation((sql: string) =>
+            Promise.resolve({
+                rows: sql.includes('catalog_services')
+                    ? CATALOG
+                    : [{ now: new Date('2026-01-01T00:00:00Z') }],
+            }),
+        );
         const moduleFixture: TestingModule = await Test.createTestingModule({
             imports: [AppModule],
-        }).compile();
+        })
+            .overrideProvider(PG_CONNECTION)
+            .useValue(pool)
+            .compile();
 
         app = moduleFixture.createNestApplication();
         await app.init();
@@ -21,11 +35,25 @@ describe('AppController (e2e)', () => {
             .get('/catalog')
             .expect(200)
             .expect((response) => {
-                expect(response.body).toHaveLength(18);
+                expect(response.body).toEqual(CATALOG);
             });
     });
 
-    afterEach(async () => {
+    it('filters database catalog rows through the HTTP route', () => {
+        return request(app.getHttpServer())
+            .get('/catalog')
+            .query({ category: 'Grooming', q: 'cat' })
+            .expect(200)
+            .expect((response) => {
+                const items = response.body as CatalogItem[];
+                expect(items.length).toBeGreaterThan(0);
+                expect(
+                    items.every((item) => item.category === 'Grooming'),
+                ).toBe(true);
+            });
+    });
+
+    afterAll(async () => {
         await app.close();
     });
 });

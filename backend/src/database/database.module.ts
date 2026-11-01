@@ -25,11 +25,16 @@ export class DatabaseModule implements OnModuleInit {
 
     async onModuleInit() {
         try {
-            const res = await this.pool.query('SELECT NOW()');
-            this.logger.log('✅ Connected to Supabase PostgreSQL successfully at ' + res.rows[0].now);
+            const res = await this.pool.query<{ now: Date }>('SELECT NOW()');
+            this.logger.log(
+                '✅ Connected to Supabase PostgreSQL successfully at ' +
+                    res.rows[0].now.toString(),
+            );
         } catch (error) {
-            this.logger.error('❌ Failed to connect to Supabase PostgreSQL:', error);
+            this.logger.error(
+                '❌ Failed to connect to Supabase PostgreSQL:',
+                error,
+            );
         }
     }
 }
-

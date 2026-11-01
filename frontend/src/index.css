@@ -173,17 +173,27 @@ body {
     min-height: 100vh;
 }
 
-/* Dim and invert the map tiles in dark mode so the map doesn't glare. */
-.dark .leaflet-tile-pane {
-    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+/* Vector templates define their own colours and detail, independently of the
+   page theme. Keep the map canvas and service markers free of colour filters. */
+.recommendation-map {
+    --map-background: #f6f4ed;
 }
-.dark .leaflet-container {
-    background: rgb(var(--page));
+.recommendation-map[data-map-style='streets'] {
+    --map-background: #f8f4f0;
 }
-.dark .leaflet-control-attribution {
+.recommendation-map[data-map-style='night'] {
+    --map-background: #1c282b;
+}
+.recommendation-map .leaflet-container {
+    background: var(--map-background);
+}
+.recommendation-map .leaflet-gl-layer {
+    pointer-events: none;
+}
+.recommendation-map .leaflet-container .leaflet-control-attribution {
     background: rgb(var(--color-white) / 0.85);
     color: rgb(var(--color-gray-700));
 }
-.dark .leaflet-control-attribution a {
+.recommendation-map .leaflet-container .leaflet-control-attribution a {
     color: rgb(var(--color-teal-800));
 }

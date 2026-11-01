@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { useLoading } from '../context/LoadingContext';
+import { useLoading } from '../context/useLoading';
 import { controlClass, primaryButtonClass } from '../components/ui';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { HOME_PATH } from '../routes';
+import type { User } from '../types';
 
 interface LoginPageProps {
     setLoggedIn: (state: boolean) => void;
-    setCurrentUser: (user: any) => void;
+    setCurrentUser: (user: User) => void;
 }
 
 type FieldErrors = { username?: string; password?: string };

@@ -9,11 +9,13 @@ from pathlib import Path
 
 import grpc
 from grpc_tools import protoc
+from db_test_support import PostgresTestCase
 
 
-class RecommendationGrpcTests(unittest.TestCase):
+class RecommendationGrpcTests(PostgresTestCase):
     @classmethod
     def setUpClass(cls):
+        super().setUpClass()
         cls.bindings_dir = tempfile.TemporaryDirectory()
         root = Path(__file__).resolve().parent.parent
         result = protoc.main(
@@ -37,14 +39,14 @@ class RecommendationGrpcTests(unittest.TestCase):
     def tearDownClass(cls):
         sys.path.remove(cls.bindings_dir.name)
         cls.bindings_dir.cleanup()
+        super().tearDownClass()
 
     def setUp(self):
-        self.data_dir = tempfile.TemporaryDirectory()
-        self.db_path = str(Path(self.data_dir.name) / "recommendations.sqlite3")
+        super().setUp()
         self.grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
         self.pb_grpc.add_RecommendationEngineServicer_to_server(
             self.server_module.RecommendationEngine(
-                self.store_module.RecommendationStore(self.db_path)
+                self.store
             ),
             self.grpc_server,
         )
@@ -56,7 +58,6 @@ class RecommendationGrpcTests(unittest.TestCase):
     def tearDown(self):
         self.channel.close()
         self.grpc_server.stop(0).wait()
-        self.data_dir.cleanup()
 
     def test_crud_and_live_recommendation(self):
         input_request = self.pb.RecommendationRequest(
@@ -99,7 +100,7 @@ class RecommendationGrpcTests(unittest.TestCase):
         self.assertEqual(len(updated.matches), 0)
         self.assertEqual(updated.created_at, created.created_at)
         self.assertEqual(
-            self.store_module.RecommendationStore(self.db_path).get(created.id)["limit"],
+            self.store.get(created.id)["limit"],
             1,
         )
 
@@ -112,7 +113,7 @@ class RecommendationGrpcTests(unittest.TestCase):
         self.assertEqual(missing.exception.code(), grpc.StatusCode.NOT_FOUND)
 
     def test_live_recommendation_uses_stored_ratings(self):
-        self.store_module.RecommendationStore(self.db_path).save_rating(102, 4.5, 2, 1)
+        self.store.save_rating(102, 4.5, 2, 1)
         response = self.stub.Recommend(
             self.pb.RecommendationRequest(
                 pet=self.pb.Pet(species="cat", needs=["play"], max_price=0),

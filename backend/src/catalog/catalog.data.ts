@@ -1,5 +1,7 @@
 import { CatalogItem } from './catalog.types';
 
+// One-time seed and test fixture. Runtime catalog reads use PostgreSQL.
+
 // Services around Chulalongkorn University (13.7384, 100.5320). Most sit
 // within about 1 km of the campus and Samyan; fewer sit further out, so the
 // map shows different results when zoomed in and out.

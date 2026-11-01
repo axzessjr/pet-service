@@ -8,18 +8,12 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { useState } from 'react';
 import { HOME_PATH } from './routes';
+import type { User } from './types';
 import './App.css';
 
 export interface ProtectedRouteProps {
     isLoggedIn: boolean;
     children: React.ReactNode;
-}
-
-export interface User {
-    id: any;
-    firstname: string;
-    lastname: string;
-    email: string;
 }
 
 function ProtectedRoute({ isLoggedIn, children }: ProtectedRouteProps) {

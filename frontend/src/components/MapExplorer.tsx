@@ -118,8 +118,8 @@ export function MapExplorer({
             ? 0
             : (document.getElementById('results-panel')?.offsetHeight ?? 0);
         const clear = isDesktop
-            ? { top: 64, right: 72, bottom: 40, left: 32 }
-            : { top: 56, right: 72, bottom: sheet + 40, left: 24 };
+            ? { top: 112, right: 72, bottom: 40, left: 32 }
+            : { top: 64, right: 72, bottom: sheet + 40, left: 24 };
         const bottomEdge = Math.max(clear.top, size.y - clear.bottom);
         const point = map.latLngToContainerPoint([
             selected.service.location.lat,
@@ -304,7 +304,7 @@ function MapStatus({
             <button
                 type="button"
                 onClick={onZoomIn}
-                className={`${chip} text-gray-800 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700`}
+                className={`${chip} max-lg:hidden text-gray-800 hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700`}
             >
                 <i aria-hidden="true" className="fa-solid fa-magnifying-glass-plus text-teal-700"></i>
                 Showing the top {data.recommendations.length}. Zoom in for all {data.total}

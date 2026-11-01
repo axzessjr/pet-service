@@ -77,7 +77,7 @@ describe('GatewayService with the real controllers', () => {
             controllers: [RecommendationController, CatalogController],
             providers: [
                 GatewayService,
-                CatalogService,
+                { provide: CatalogService, useValue: {} },
                 { provide: RecommendationService, useValue: {} },
             ],
         }).compile();
