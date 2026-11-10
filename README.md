@@ -4,56 +4,127 @@ Pawpal is a pet service catalog with recommendations for a selected pet. The Rea
 
 After using a service, pet owners can review it with a rating, text, and photos. Reviews are kept by the review service, a separate NestJS service that stores them in MongoDB Atlas. Each review change is published to RabbitMQ, and the recommender uses the resulting average ratings to break ranking ties.
 
+## Cloud data, local services
+
+The frontend, NestJS API, Python recommender, review service, and RabbitMQ run on your computer. Application data is shared in cloud databases:
+
+| Data | Storage |
+| --- | --- |
+| Users and pets | Supabase PostgreSQL (`users`, `pets`) |
+| Service catalog | Supabase PostgreSQL (`catalog_services`) |
+| Saved recommendation lists | Supabase PostgreSQL (`saved_recommendations`) |
+| Cached review ratings | Supabase PostgreSQL (`service_ratings`) |
+| Reviews and photos | MongoDB Atlas (`reviews` and GridFS `review_photos`) |
+| Queued review events | Local RabbitMQ Docker volume |
+
+Browser login state remains in browser storage. Internet access is required for application data. Run only one review publisher stack per shared Atlas review database when RabbitMQ is local; developers running independent stacks should use separate review databases, or share a broker. Moving storage does not add authentication to the existing APIs.
+
+## Configure cloud databases
+
+Keep the active private files together at the repository root: `.env` and `atlas-client.pem`. `.env.example` is the shared template. Service-specific `.env` files are no longer used.
+
+1. Set `DATABASE_URL` in the root `.env` to the existing Supabase PostgreSQL connection string. Both the backend and recommender use it. The recommender loads this file automatically during native development; Compose reads the root `.env` and passes each service only the settings it uses. Never put database credentials in frontend environment variables.
+2. Configure Atlas X.509 authentication using the root `.env.example`: set `MONGODB_URL`, `MONGODB_DB=reviews`, and `MONGODB_TLS_CERTIFICATE_KEY_FILE=atlas-client.pem`, and place the certificate and private key in `atlas-client.pem` beside `.env`. The supplied Docker stack requires this file. Atlas Network Access must allow this computer's public IP, and the certificate's database user must have read/write access.
+3. Create the PostgreSQL tables and seed the catalog once:
+
+```powershell
+cd backend
+npm.cmd ci
+npm.cmd run db:migrate
+cd ../review
+npm.cmd ci
+npm.cmd run db:check-cloud
+cd ..
+```
+
+The PostgreSQL migration is transactional and repeatable. It inserts missing catalog IDs without overwriting cloud edits. The 60 entries in `backend/src/catalog/catalog.data.ts` are migration seed/test data only; runtime requests read the database. Row-level security is enabled on the three new tables without public policies, so access goes through the server-side database connection.
+
+Both private files are ignored by Git and excluded from image builds. Compose mounts only the certificate read-only at `/run/secrets/atlas-client.pem`; native commands resolve the certificate relative to the repository root. Replace expiring certificates in this location and recreate the review container to load the replacement.
+
+Password authentication is also supported by the native review service: use the Atlas password connection string and omit `MONGODB_TLS_CERTIFICATE_KEY_FILE`. To use that mode with Docker, also remove the `review` service's certificate bind mount and its `MONGODB_TLS_CERTIFICATE_KEY_FILE` environment entry from `compose.yaml`.
+
+If a native Windows check fails with `ECONNREFUSED` while resolving Atlas SRV/TXT records, Docker may still connect normally. For a one-process DNS override, run `node -e "require('node:dns').setServers(['1.1.1.1','8.8.8.8']); require('./scripts/check-cloud.cjs');"` from `review/`. The same wrapper can run `./scripts/migrate-to-atlas.cjs`; it does not change Windows DNS settings.
+
 ## Run with Docker
 
-From the repository root:
-
-```bash
-export DATABASE_URL='your PostgreSQL connection string'
-docker compose up --build
-```
-
-In PowerShell, set `$env:DATABASE_URL` instead of using `export`. The backend needs this connection to read the existing `pets` table. The recommender saves sets in SQLite on the `recommendation_data` Docker volume.
-
-Before the first run, copy `review/.env.example` to `review/.env` and set `MONGODB_URL` to your MongoDB Atlas connection string. To get it, open your Atlas cluster and choose **Connect > Drivers**. The Atlas database user needs read and write access to the `reviews` database. Atlas **Network Access** must allow the public IP address of each machine that runs the stack. Git ignores `review/.env`, and the Docker build leaves it out of every image.
-
-To work offline, use the bundled MongoDB instead. Set `MONGODB_URL=mongodb://review:review@review-db:27017/?authSource=admin` in `review/.env` and start the stack with `docker compose --profile local-db up --build`.
-
-Open <http://localhost:5173> and choose **For my pet**. Compose starts RabbitMQ, the Python recommender, the review service (connected to MongoDB Atlas), the NestJS API, and the nginx-hosted frontend. The API is also available at <http://localhost:3000>. The RabbitMQ management UI is at <http://localhost:15672> (user `pawpal`, password `pawpal`). Stop the stack with `docker compose down`.
-
-## Run locally
-
-Use Python 3.11+ and Node.js 24+. Start each process in its own terminal from the repository root.
+After configuring both cloud databases and migrating any existing data below, run from the repository root:
 
 ```powershell
-# Terminal 1: generate Python gRPC bindings and start the recommender
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r recommender\requirements.txt
-.\.venv\Scripts\python.exe -m grpc_tools.protoc -Iproto --python_out=recommender --grpc_python_out=recommender proto\recommendation.proto
-cd recommender
-..\.venv\Scripts\python.exe server.py
+docker compose up -d --build
 ```
 
-The recommender saves local sets to `recommender/recommendations.sqlite3` by default. Set `RECOMMENDATION_DB_PATH` to use another location.
+Open <http://localhost:5173>. The API is at <http://localhost:3000>. RabbitMQ's management UI is at <http://localhost:15672> (user `pawpal`, password `pawpal`). Its AMQP port is bound to `127.0.0.1:5672` for native local services. Stop the stack with `docker compose down`; keep its persistent RabbitMQ volume.
+
+The normal stack starts no local application database. The `migration` profile exposes the old MongoDB volume on `127.0.0.1:27018` solely for copying existing data. The old recommendation volume is retained but no application service mounts it.
+
+## Migrate existing local data
+
+Stop the old application services before copying data so their contents stay consistent. Preserve the old volumes and backups until both cloud databases have been verified; do not use `docker compose down -v` during migration.
+
+For saved lists, export the old SQLite database using SQLite's backup API, including any journal files in the snapshot. For native development its default path was `recommender/recommendations.sqlite3`; Docker used `pet-service_recommendation_data`. Import a consistent snapshot with:
 
 ```powershell
-# Terminal 2: API
+.\.venv-cloud\Scripts\python.exe recommender/migrate_sqlite.py .migration/recommendations.sqlite3
+```
+
+The importer keeps saved IDs and timestamps, migrates rating versions as 64-bit integers, and uses a single PostgreSQL transaction. Repeating it is safe: differing saved records cause a rollback, and newer cloud rating versions are retained. It never deletes the SQLite source.
+
+For reviews, set the Atlas destination in the root `.env`, then:
+
+```powershell
+docker compose --profile migration up -d review-db
+cd review
+npm.cmd run db:migrate-atlas
+npm.cmd run db:check-cloud
+cd ..
+docker compose --profile migration stop review-db
+```
+
+The importer reads the old MongoDB on port 27018 and copies reviews, GridFS files/chunks, indexes, and event versions. Override `SOURCE_MONGODB_URL` / `SOURCE_MONGODB_DB` for another source. It preserves IDs, verifies each document, and never overwrites a conflicting cloud document or deletes the source. Failed copies may leave verified partial data in Atlas; rerun after fixing the error. Start the review service only when copying and verification finish.
+
+## Run natively
+
+Use Python 3.11+ and Node.js 24+. First configure cloud databases above, then start the local broker:
+
+```powershell
+docker compose up -d rabbitmq
+```
+
+Start each process in its own terminal from the repository root:
+
+```powershell
+# Terminal 1: recommender
+python -m venv .venv-cloud
+.\.venv-cloud\Scripts\python.exe -m pip install -r recommender/requirements.txt
+.\.venv-cloud\Scripts\python.exe -m grpc_tools.protoc -Iproto --python_out=recommender --grpc_python_out=recommender proto/recommendation.proto
+.\.venv-cloud\Scripts\python.exe recommender/server.py
+```
+
+The recommender requires `DATABASE_URL`; there is no SQLite fallback. It uses the local broker by default. Set `RABBITMQ_URL` to override it.
+
+```powershell
+# Terminal 2: review service
+cd review
+# RABBITMQ_URL is read from the shared root .env
+npm.cmd ci
+npm.cmd run start:dev
+```
+
+```powershell
+# Terminal 3: API
 cd backend
-npm ci
-$env:DATABASE_URL = 'your PostgreSQL connection string'
-npm run start:dev
+npm.cmd ci
+npm.cmd run start:dev
 ```
 
 ```powershell
-# Terminal 3: frontend
+# Terminal 4: frontend
 cd frontend
-npm ci
-npm run dev
+npm.cmd ci
+npm.cmd run dev
 ```
 
-The Vite development server proxies `/api` to `http://localhost:3000`. Override that target with `BACKEND_URL` if needed. The backend calls `localhost:50051` by default; override it with `RECOMMENDATION_GRPC_URL`.
-
-To run the review service outside Docker, add `RABBITMQ_URL` for a broker to `review/.env`, next to `MONGODB_URL`, then run `npm ci` and `npm run start:dev` in `review`. The service reads `review/.env` on startup. `MONGODB_DB` sets the database name (default `reviews`). It listens on port 3001, which the backend calls by default; override that with `REVIEW_URL`. Set `RABBITMQ_URL` for the recommender too if it should receive rating updates.
+The Vite proxy calls `localhost:3000` (override with `BACKEND_URL`). The API calls `localhost:50051` for gRPC (`RECOMMENDATION_GRPC_URL`) and `localhost:3001` for reviews (`REVIEW_URL`).
 
 ## Recommendations
 
@@ -64,7 +135,7 @@ Choose **Saved lists** to open the selected pet's saved sets. **Save snapshot** 
 **What it uses to find services:**
 
 1. **Species filters:** A service must list the pet's species. A cat-only service will not appear for a dog.
-2. **Price filters:** A service must cost no more than the pet's `maxPrice`. A `maxPrice` of `0` means there is no price ceiling.
+2. **Price filters:** A service must cost no more than the pet's `maxPrice`. A `maxPrice` of `0` means there is no price ceiling. A new pet's budget starts at ฿2,000, and the API uses the same amount when a pet is created without `maxPrice`.
 3. **Needs and tags rank:** The pet's `needs` are compared with each service's `tags`. More closely matching tags produce a higher similarity score. A service with no matching need is left out.
 4. **Rating, then price, breaks score ties:** If two services have the same score, the one with the higher average review rating comes first; if that is also equal, the cheaper one comes first. A service with no reviews counts as 3 stars. If the pet has no needs, compatible services are ordered by rating, then price.
 
@@ -96,7 +167,9 @@ The saved response contains `id`, `petId`, `limit`, `matches` (service IDs, scor
 
 ### Map
 
-**For my pet** shows recommendations on an OpenStreetMap map (Leaflet), centred on Chulalongkorn University. Panning or zooming fetches recommendations for the visible area once the map has been still for 400 ms. The search box, the category chips, and the maximum price and rating filters (under **Filters**) narrow the same results. The chips only offer categories that have a service for the pet's species, and they double as the legend for the pin colours.
+**For my pet** shows recommendations on an OpenFreeMap vector map, rendered through MapLibre inside Leaflet and centred on Chulalongkorn University. The **Map style** picker offers **Calm**, **Streets**, and **Night**; Calm is the default and removes building detail, shop icons, and most minor labels. The browser remembers the chosen template independently of the page theme. If the vector map cannot load, the map shows standard OpenStreetMap tiles with a fallback notice.
+
+Panning or zooming fetches recommendations for the visible area once the map has been still for 400 ms. The search box, the category chips, and the maximum price and rating filters (under **Filters**) narrow the same results. The chips only offer categories that have a service for the pet's species, and they double as the legend for the pin colours.
 
 The map is held to the area with services: every service and Chula, plus about 1 km. It can't be dragged off that area or zoomed out past the point where all of it is in view, and a link to a place outside it opens on the services instead. The area comes from the catalog's locations, so it grows with the catalog.
 
@@ -183,14 +256,14 @@ If RabbitMQ is down, reviews are still saved and stay marked until it returns. M
 
 ## API and data
 
-- `GET /catalog` lists 60 mock services with species, category, care tags, price, and a location near Chulalongkorn University. Add `?q=groom` (title, provider, description, category, tags, district, or address) and `?category=Grooming` to search it.
+- `GET /catalog` reads services from Supabase, initially seeded with 60 example services with species, category, care tags, price, and a location near Chulalongkorn University. Add `?q=groom` (title, provider, description, category, tags, district, or address) and `?category=Grooming` to search it.
 - `GET /pet-profile/me` reads pets from the configured PostgreSQL database. Each pet has care needs and a maximum service price.
 - `GET /recommendation/pets/:petId` returns up to five services with matching need tags.
-- A pet without care needs receives the cheapest compatible services as a fallback.
+- A pet without care needs receives compatible services ordered by review rating, then price.
 
 Live and saved recommendation matches also include `averageRating` and `reviewCount`.
 
-The catalog is in memory; pets are read from PostgreSQL. NestJS sends current catalog candidates in each recommendation request, so the Python service does not need a separate copy of catalog data. Saved recommendation sets are persisted in SQLite.
+The catalog and pets are read from Supabase PostgreSQL. NestJS sends current catalog candidates in each recommendation request, so the Python service does not need a separate copy of catalog data. Saved recommendation sets and the rating cache also persist in Supabase.
 
 ## Verify
 
@@ -212,9 +285,11 @@ npm run build
 ```
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s recommender
-docker compose config
+.\.venv-cloud\Scripts\python.exe -m unittest discover -s recommender
+docker compose config --quiet
 ```
 
 Python gRPC bindings are generated during the Docker build or by the local command above.
 With the recommender running locally, run `node test/grpc-contract-smoke.js` from `backend` to check the NestJS-to-Python CRUD contract.
+
+PostgreSQL persistence, event, migration, and gRPC integration tests require `TEST_DATABASE_URL`. They create and remove randomly named test schemas without modifying application tables. Without it, those tests are explicitly skipped; ranking tests still run.

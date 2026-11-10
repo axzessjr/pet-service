@@ -2,9 +2,18 @@
 **/node_modules
 **/dist
 **/.venv
+**/.venv-cloud
+.cache
+.migration
+.playwright-mcp
+.vscode
+review/certs
+frontend/src/atlas-credentials.env
 **/__pycache__
 **/*.pyc
 **/coverage
 # Secrets reach containers through env_file, never through the image.
+atlas-client.pem
 **/.env
+**/.env.*.local
 **/docs/

@@ -49,9 +49,8 @@ export class ReviewService {
     async createReview(body: Record<string, unknown> | undefined) {
         const ownerId = positiveInteger(body?.ownerId, 'ownerId');
         const serviceId = positiveInteger(body?.serviceId, 'serviceId');
-        const service = this.catalogService
-            .getCatalogItems()
-            .find((item) => item.id === serviceId);
+        const catalog = await this.catalogService.getCatalogItems();
+        const service = catalog.find((item) => item.id === serviceId);
         if (!service) {
             throw new NotFoundException(`Service ${serviceId} was not found`);
         }

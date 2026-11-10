@@ -140,7 +140,7 @@ export class RecommendationService implements OnModuleInit {
             throw new BadRequestException('limit must be between 1 and 100');
         }
         const pet = await this.loadPet(petId);
-        const catalog = this.catalogService.getCatalogItems();
+        const catalog = await this.catalogService.getCatalogItems();
         return {
             pet,
             catalog,
@@ -207,7 +207,7 @@ export class RecommendationService implements OnModuleInit {
     ): Promise<MapRecommendations> {
         const pet = await this.loadPet(petId);
         const maxPrice = effectiveMaxPrice(pet.maxPrice, query.maxPrice);
-        const items = this.catalogService.getCatalogItems();
+        const items = await this.catalogService.getCatalogItems();
         const candidates = filterForMap(items, query, maxPrice);
 
         let ranked: MapRecommendation[] = [];

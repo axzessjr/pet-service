@@ -7,7 +7,10 @@ describe('PetProfileService', () => {
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [PetProfileService, { provide: PG_CONNECTION, useValue: {} }],
+            providers: [
+                PetProfileService,
+                { provide: PG_CONNECTION, useValue: {} },
+            ],
         }).compile();
 
         service = module.get<PetProfileService>(PetProfileService);

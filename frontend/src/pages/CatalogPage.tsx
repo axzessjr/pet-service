@@ -1,7 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import type { CatalogItem, Pet, Review, ServiceRating } from '../types';
-import type { User } from '../App';
+import type { CatalogItem, Pet, Review, ServiceRating, User } from '../types';
 import { EmptyState } from '../components/EmptyState';
 import { ReviewDialog } from '../components/ReviewDialog';
 import { RatingSummary } from '../components/Stars';

@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    Inject,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { Pool } from 'pg';
 import { PG_CONNECTION } from '../database/database.module';
 
@@ -6,10 +11,10 @@ import { Pet, PetInput } from './pet-profile.types';
 
 @Injectable()
 export class PetProfileService {
-    constructor(@Inject(PG_CONNECTION) private readonly pool: Pool) { }
+    constructor(@Inject(PG_CONNECTION) private readonly pool: Pool) {}
 
     // 1. Fetch pets belonging to a specific user
-    async getProfile(userId: any) {
+    async getProfile(userId: string | number | undefined): Promise<Pet[]> {
         if (!userId) return [];
 
         const sql = `
@@ -19,7 +24,7 @@ export class PetProfileService {
             ORDER BY id ASC
         `;
 
-        const { rows } = await this.pool.query(sql, [userId])
+        const { rows } = await this.pool.query<Pet>(sql, [userId]);
 
         return rows;
     }
@@ -32,7 +37,7 @@ export class PetProfileService {
             WHERE id = $1
             LIMIT 1
         `;
-        const { rows } = await this.pool.query(sql, [id]);
+        const { rows } = await this.pool.query<Pet>(sql, [id]);
         return rows[0];
     }
 
@@ -45,8 +50,12 @@ export class PetProfileService {
             VALUES ($1, $2, $3, $4, $5)
             RETURNING ${PET_COLUMNS}
         `;
-        const { rows } = await this.pool.query(sql, [
-            pet.userId, pet.name, pet.species, pet.needs, pet.maxPrice,
+        const { rows } = await this.pool.query<Pet>(sql, [
+            pet.userId,
+            pet.name,
+            pet.species,
+            pet.needs,
+            pet.maxPrice,
         ]);
         return rows[0];
     }
@@ -61,15 +70,23 @@ export class PetProfileService {
             WHERE id = $1 AND user_id = $2
             RETURNING ${PET_COLUMNS}
         `;
-        const { rows } = await this.pool.query(sql, [
-            id, pet.userId, pet.name, pet.species, pet.needs, pet.maxPrice,
+        const { rows } = await this.pool.query<Pet>(sql, [
+            id,
+            pet.userId,
+            pet.name,
+            pet.species,
+            pet.needs,
+            pet.maxPrice,
         ]);
         if (!rows[0]) throw new NotFoundException(`Pet ${id} not found`);
         return rows[0];
     }
 
     // 5. Delete a pet (only if it belongs to the given user)
-    async deletePet(id: number, userId: any): Promise<{ id: number }> {
+    async deletePet(
+        id: number,
+        userId: string | number | undefined,
+    ): Promise<{ id: number }> {
         if (!userId) throw new BadRequestException('userId is required');
 
         const { rowCount } = await this.pool.query(
@@ -83,7 +100,7 @@ export class PetProfileService {
     private validatePetInput(input: Partial<PetInput>): PetInput {
         const name = input?.name?.trim();
         const species = input?.species?.trim().toLowerCase();
-        const maxPrice = Number(input?.maxPrice ?? 0);
+        const maxPrice = Number(input?.maxPrice ?? DEFAULT_MAX_PRICE);
         const needs = Array.isArray(input?.needs)
             ? input.needs.map((n) => String(n).trim()).filter(Boolean)
             : [];
@@ -92,13 +109,17 @@ export class PetProfileService {
         if (!name) throw new BadRequestException('name is required');
         if (!species) throw new BadRequestException('species is required');
         if (!Number.isFinite(maxPrice) || maxPrice < 0) {
-            throw new BadRequestException('maxPrice must be a non-negative number');
+            throw new BadRequestException(
+                'maxPrice must be a non-negative number',
+            );
         }
 
         return { userId: input.userId, name, species, needs, maxPrice };
     }
-
 }
+
+// Budget in baht for a pet created without one. 0 means no limit.
+const DEFAULT_MAX_PRICE = 2000;
 
 const PET_COLUMNS = `
     id::int AS id,
@@ -108,7 +129,6 @@ const PET_COLUMNS = `
     needs,
     max_price::float AS "maxPrice"
 `;
-
 
 /*
 @Injectable()

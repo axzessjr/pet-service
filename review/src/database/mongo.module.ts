@@ -56,12 +56,7 @@ export interface ReviewDocument {
     deletedAt?: Date;
 }
 
-// MONGODB_URL is usually a MongoDB Atlas connection string (mongodb+srv://...);
-// a local server works too.
-const client = new MongoClient(
-    process.env.MONGODB_URL ?? 'mongodb://localhost:27017',
-    { appName: 'pawpal-review' },
-);
+let client: MongoClient | undefined;
 
 @Global()
 @Module({
@@ -69,6 +64,15 @@ const client = new MongoClient(
         {
             provide: MONGO_DB,
             useFactory: async (): Promise<Db> => {
+                const url = process.env.MONGODB_URL;
+                if (!url) throw new Error('Set MONGODB_URL in the root .env to your MongoDB Atlas connection string');
+                client = new MongoClient(url, {
+                    appName: 'pawpal-review',
+                    serverSelectionTimeoutMS: 10000,
+                    ...(process.env.MONGODB_TLS_CERTIFICATE_KEY_FILE && {
+                        tlsCertificateKeyFile: process.env.MONGODB_TLS_CERTIFICATE_KEY_FILE,
+                    }),
+                });
                 await client.connect();
                 return client.db(process.env.MONGODB_DB ?? 'reviews');
             },
@@ -96,6 +100,6 @@ export class MongoModule implements OnModuleInit, OnApplicationShutdown {
     }
 
     async onApplicationShutdown() {
-        await client.close();
+        await client?.close();
     }
 }

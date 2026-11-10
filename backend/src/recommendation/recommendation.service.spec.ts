@@ -1,6 +1,7 @@
 import type { ClientGrpc } from '@nestjs/microservices';
 import { of, throwError } from 'rxjs';
 import { CatalogService } from '../catalog/catalog.service';
+import { CATALOG } from '../catalog/catalog.data';
 import { PetProfileService } from '../pet-profile/pet-profile.service';
 import { RecommendationService } from './recommendation.service';
 import type {
@@ -54,7 +55,9 @@ describe('RecommendationService', () => {
         (profile.getPetById as jest.Mock).mockReset().mockResolvedValue(pet);
         service = new RecommendationService(
             client,
-            new CatalogService(),
+            {
+                getCatalogItems: jest.fn().mockResolvedValue(CATALOG),
+            } as unknown as CatalogService,
             profile,
         );
         service.onModuleInit();
@@ -259,10 +262,10 @@ describe('RecommendationService.recommendForMap', () => {
         maxLat: 13.73,
         maxLng: 100.54,
     };
-    const catalog = new CatalogService();
-    const byId = new Map(
-        catalog.getCatalogItems().map((item) => [item.id, item]),
-    );
+    const catalog = {
+        getCatalogItems: jest.fn().mockResolvedValue(CATALOG),
+    } as unknown as CatalogService;
+    const byId = new Map(CATALOG.map((item) => [item.id, item]));
     let service: RecommendationService;
 
     beforeEach(() => {
@@ -285,7 +288,7 @@ describe('RecommendationService.recommendForMap', () => {
         });
         const ids = sent().services.map((item) => item.id);
         expect(ids.length).toBeGreaterThan(0);
-        expect(ids.length).toBeLessThan(catalog.getCatalogItems().length);
+        expect(ids.length).toBeLessThan(CATALOG.length);
         for (const id of ids) {
             const location = byId.get(id)?.location;
             if (!location) throw new Error(`Unknown service ${id}`);
@@ -407,17 +410,14 @@ describe('RecommendationService.recommendForMap', () => {
             zoom: 15,
             includeUnmatched: true,
         });
-        const dogPrices = catalog
-            .getCatalogItems()
-            .filter(
-                (item) =>
-                    item.species.includes('dog') &&
-                    item.location.lat >= chula.minLat &&
-                    item.location.lat <= chula.maxLat &&
-                    item.location.lng >= chula.minLng &&
-                    item.location.lng <= chula.maxLng,
-            )
-            .map((item) => item.price);
+        const dogPrices = CATALOG.filter(
+            (item) =>
+                item.species.includes('dog') &&
+                item.location.lat >= chula.minLat &&
+                item.location.lat <= chula.maxLat &&
+                item.location.lng >= chula.minLng &&
+                item.location.lng <= chula.maxLng,
+        ).map((item) => item.price);
         expect(result.total).toBe(0);
         expect(result.overBudget).toEqual({
             count: dogPrices.length,

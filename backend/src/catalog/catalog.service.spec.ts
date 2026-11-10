@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { PG_CONNECTION } from '../database/database.module';
+import { CATALOG } from './catalog.data';
 import {
     CatalogService,
     matchesCategory,
@@ -23,10 +25,15 @@ function distanceKm(
 
 describe('CatalogService', () => {
     let service: CatalogService;
+    const pool = { query: jest.fn() };
 
     beforeEach(async () => {
+        pool.query.mockReset().mockResolvedValue({ rows: CATALOG });
         const module: TestingModule = await Test.createTestingModule({
-            providers: [CatalogService],
+            providers: [
+                CatalogService,
+                { provide: PG_CONNECTION, useValue: pool },
+            ],
         }).compile();
 
         service = module.get<CatalogService>(CatalogService);
@@ -36,8 +43,23 @@ describe('CatalogService', () => {
         expect(service).toBeDefined();
     });
 
+    it('reads current database rows on each request', async () => {
+        expect(await service.getCatalogItems()).toEqual(CATALOG);
+        const changed = [{ ...CATALOG[0], title: 'Updated in cloud' }];
+        pool.query.mockResolvedValueOnce({ rows: changed });
+        expect(await service.getCatalogItems()).toEqual(changed);
+        expect(pool.query).toHaveBeenCalledWith(
+            expect.stringContaining('public.catalog_services'),
+        );
+    });
+
+    it('does not substitute mock data when the database fails', async () => {
+        pool.query.mockRejectedValueOnce(new Error('offline'));
+        await expect(service.getCatalogItems()).rejects.toThrow('offline');
+    });
+
     describe('catalog data', () => {
-        const items = () => service.getCatalogItems();
+        const items = () => CATALOG;
 
         it('has about 60 services with unique ids', () => {
             const ids = items().map((item) => item.id);
@@ -93,7 +115,7 @@ describe('CatalogService', () => {
 
     describe('search', () => {
         it('matches text case-insensitively across fields', () => {
-            const [item] = service.getCatalogItems();
+            const [item] = CATALOG;
             expect(matchesText(item, 'NEIGHBORHOOD')).toBe(true);
             expect(matchesText(item, 'john doe')).toBe(true);
             expect(matchesText(item, 'water breaks')).toBe(true);
@@ -105,22 +127,22 @@ describe('CatalogService', () => {
         });
 
         it('matches hyphenated tags with or without the hyphen', () => {
-            const item = service
-                .getCatalogItems()
-                .find((entry) => entry.tags.includes('coat-care'));
+            const item = CATALOG.find((entry) =>
+                entry.tags.includes('coat-care'),
+            );
             expect(item && matchesText(item, 'coat-care')).toBe(true);
             expect(item && matchesText(item, 'coat care')).toBe(true);
         });
 
         it('matches category exactly, ignoring case', () => {
-            const [item] = service.getCatalogItems();
+            const [item] = CATALOG;
             expect(matchesCategory(item, 'walking')).toBe(true);
             expect(matchesCategory(item, 'Walk')).toBe(false);
             expect(matchesCategory(item, '')).toBe(true);
         });
 
-        it('filters by q and category together', () => {
-            const results = service.search({
+        it('filters by q and category together', async () => {
+            const results = await service.search({
                 q: 'groom',
                 category: 'Grooming',
             });
@@ -128,9 +150,9 @@ describe('CatalogService', () => {
             expect(results.every((item) => item.category === 'Grooming')).toBe(
                 true,
             );
-            expect(service.search({ q: 'groom', category: 'Walking' })).toEqual(
-                [],
-            );
+            expect(
+                await service.search({ q: 'groom', category: 'Walking' }),
+            ).toEqual([]);
         });
     });
 });

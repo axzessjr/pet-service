@@ -1,13 +1,31 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RecommendationController } from './recommendation.controller';
 import { RecommendationService } from './recommendation.service';
+import type {
+    MapRecommendations,
+    PetRecommendations,
+} from './recommendation.types';
 
 describe('RecommendationController', () => {
     let controller: RecommendationController;
-    const recommendForPet = jest.fn();
+    const recommendForPet = jest.fn<
+        ReturnType<RecommendationService['recommendForPet']>,
+        Parameters<RecommendationService['recommendForPet']>
+    >();
+    const recommendations: PetRecommendations = {
+        pet: {
+            id: 2,
+            name: 'Milo',
+            species: 'dog',
+            needs: [],
+            maxPrice: 2000,
+            userId: 1,
+        },
+        recommendations: [],
+    };
 
     beforeEach(async () => {
-        recommendForPet.mockReset();
+        recommendForPet.mockReset().mockResolvedValue(recommendations);
         const module: TestingModule = await Test.createTestingModule({
             controllers: [RecommendationController],
             providers: [
@@ -27,13 +45,15 @@ describe('RecommendationController', () => {
         expect(controller).toBeDefined();
     });
 
-    it('uses the default limit when none is given', () => {
-        controller.getForPet(2);
+    it('uses the default limit when none is given', async () => {
+        await expect(controller.getForPet(2)).resolves.toBe(recommendations);
         expect(recommendForPet).toHaveBeenCalledWith(2);
     });
 
-    it('passes a valid limit through', () => {
-        controller.getForPet(2, '10');
+    it('passes a valid limit through', async () => {
+        await expect(controller.getForPet(2, '10')).resolves.toBe(
+            recommendations,
+        );
         expect(recommendForPet).toHaveBeenCalledWith(2, 10);
     });
 
@@ -45,22 +65,50 @@ describe('RecommendationController', () => {
 });
 
 describe('RecommendationController map route', () => {
-    const recommendForMap = jest.fn();
+    const recommendForMap = jest.fn<
+        ReturnType<RecommendationService['recommendForMap']>,
+        Parameters<RecommendationService['recommendForMap']>
+    >();
+    const recommendations: MapRecommendations = {
+        pet: {
+            id: 3,
+            name: 'Luna',
+            species: 'cat',
+            needs: [],
+            maxPrice: 2000,
+            userId: 1,
+        },
+        mode: 'top',
+        bounds: {
+            minLat: 13.73,
+            minLng: 100.52,
+            maxLat: 13.75,
+            maxLng: 100.54,
+        },
+        zoom: 13,
+        detailZoom: 15,
+        total: 0,
+        recommendations: [],
+    };
     const controller = new RecommendationController({
         recommendForMap,
     } as unknown as RecommendationService);
 
-    beforeEach(() => recommendForMap.mockReset());
+    beforeEach(() => {
+        recommendForMap.mockReset().mockResolvedValue(recommendations);
+    });
 
-    it('parses the query and passes it on', () => {
-        void controller.getMapForPet(3, {
-            minLat: '13.73',
-            minLng: '100.52',
-            maxLat: '13.75',
-            maxLng: '100.54',
-            zoom: '13',
-            q: 'groom',
-        });
+    it('parses the query and passes it on', async () => {
+        await expect(
+            controller.getMapForPet(3, {
+                minLat: '13.73',
+                minLng: '100.52',
+                maxLat: '13.75',
+                maxLng: '100.54',
+                zoom: '13',
+                q: 'groom',
+            }),
+        ).resolves.toBe(recommendations);
         expect(recommendForMap).toHaveBeenCalledWith(
             3,
             expect.objectContaining({ zoom: 13, q: 'groom' }),

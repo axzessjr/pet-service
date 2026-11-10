@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router';
-import type { User } from '../App';
+import type { User } from '../types';
 import { HOME_PATH } from '../routes';
 import { ThemeToggle } from './ThemeToggle';
 

@@ -1,3 +1,11 @@
+export interface User {
+    // PostgreSQL bigint IDs arrive as strings; integer IDs arrive as numbers.
+    id: number | string;
+    firstname: string;
+    lastname: string;
+    email: string;
+}
+
 export type CatalogLocation = {
     lat: number;
     lng: number;

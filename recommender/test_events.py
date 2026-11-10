@@ -1,10 +1,8 @@
 import json
-import tempfile
 import unittest
-from pathlib import Path
 
 from events import handle_review_event
-from store import RecommendationStore
+from db_test_support import PostgresTestCase
 
 
 def message(**fields) -> bytes:
@@ -22,14 +20,7 @@ def message(**fields) -> bytes:
     return json.dumps(event).encode()
 
 
-class ReviewEventTests(unittest.TestCase):
-    def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
-        self.store = RecommendationStore(str(Path(self.directory.name) / "events.sqlite3"))
-
-    def tearDown(self):
-        self.directory.cleanup()
-
+class ReviewEventTests(PostgresTestCase):
     def test_applies_event_and_ignores_redelivery(self):
         self.assertTrue(handle_review_event(self.store, message()))
         self.assertFalse(handle_review_event(self.store, message()))

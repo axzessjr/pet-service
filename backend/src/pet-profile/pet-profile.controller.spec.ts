@@ -9,7 +9,10 @@ describe('PetProfileController', () => {
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             controllers: [PetProfileController],
-            providers: [PetProfileService, { provide: PG_CONNECTION, useValue: {} }],
+            providers: [
+                PetProfileService,
+                { provide: PG_CONNECTION, useValue: {} },
+            ],
         }).compile();
 
         controller = module.get<PetProfileController>(PetProfileController);

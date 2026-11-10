@@ -2,6 +2,8 @@ import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { CatalogController } from './catalog.controller';
 import { CatalogService } from './catalog.service';
+import { PG_CONNECTION } from '../database/database.module';
+import { CATALOG } from './catalog.data';
 
 describe('CatalogController', () => {
     let controller: CatalogController;
@@ -10,7 +12,15 @@ describe('CatalogController', () => {
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             controllers: [CatalogController],
-            providers: [CatalogService],
+            providers: [
+                CatalogService,
+                {
+                    provide: PG_CONNECTION,
+                    useValue: {
+                        query: jest.fn().mockResolvedValue({ rows: CATALOG }),
+                    },
+                },
+            ],
         }).compile();
 
         controller = module.get<CatalogController>(CatalogController);
@@ -21,12 +31,14 @@ describe('CatalogController', () => {
         expect(controller).toBeDefined();
     });
 
-    it('returns the whole catalog without filters', () => {
-        expect(controller.getAllItems()).toBe(service.getCatalogItems());
+    it('returns the whole catalog without filters', async () => {
+        expect(await controller.getAllItems()).toEqual(
+            await service.getCatalogItems(),
+        );
     });
 
-    it('filters by q and category', () => {
-        const results = controller.getAllItems('cat', 'Grooming');
+    it('filters by q and category', async () => {
+        const results = await controller.getAllItems('cat', 'Grooming');
         expect(results.length).toBeGreaterThan(0);
         expect(results.every((item) => item.category === 'Grooming')).toBe(
             true,

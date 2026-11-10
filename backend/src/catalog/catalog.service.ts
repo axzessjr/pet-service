@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { CATALOG } from './catalog.data';
+import { Inject, Injectable } from '@nestjs/common';
+import { Pool } from 'pg';
+import { PG_CONNECTION } from '../database/database.module';
 import { CatalogItem, CatalogSearch } from './catalog.types';
 
 // Case-insensitive match on the fields people search by, including tags in
@@ -29,14 +30,19 @@ export function matchesCategory(item: CatalogItem, category: string): boolean {
 
 @Injectable()
 export class CatalogService {
-    private readonly catalog: CatalogItem[] = CATALOG;
+    constructor(@Inject(PG_CONNECTION) private readonly pool: Pool) {}
 
-    getCatalogItems(): CatalogItem[] {
-        return this.catalog;
+    async getCatalogItems(): Promise<CatalogItem[]> {
+        const { rows } = await this.pool.query<CatalogItem>(
+            'SELECT id, title, provider, price, category, species, tags, description, location ' +
+                'FROM public.catalog_services ORDER BY id',
+        );
+        return rows;
     }
 
-    search({ q, category }: CatalogSearch): CatalogItem[] {
-        return this.catalog.filter(
+    async search({ q, category }: CatalogSearch): Promise<CatalogItem[]> {
+        const catalog = await this.getCatalogItems();
+        return catalog.filter(
             (item) =>
                 (q === undefined || matchesText(item, q)) &&
                 (category === undefined || matchesCategory(item, category)),
