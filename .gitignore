@@ -10,3 +10,4 @@ recommender/recommendation_pb2_grpc.py
 *.sqlite3-wal
 .env
 docs/
+**/secrets.env

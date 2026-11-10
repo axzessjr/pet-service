@@ -1,0 +1,37 @@
+# Docker Desktop Kubernetes (kubeadm mode): images are built locally and tagged :dev.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: pawpal
+resources:
+  - ../../base
+images:
+  - name: pawpal/backend
+    newTag: dev
+  - name: pawpal/review
+    newTag: dev
+  - name: pawpal/recommender
+    newTag: dev
+  - name: pawpal/frontend
+    newTag: dev
+# Two review pods, so deleting one in the demo causes no downtime.
+replicas:
+  - name: review
+    count: 2
+secretGenerator:
+  - name: pawpal-secrets
+    envs:
+      - secrets.env
+    options:
+      disableNameSuffixHash: true
+# Docker Desktop publishes LoadBalancer services on localhost.
+patches:
+  - target:
+      kind: Service
+      name: frontend
+    patch: |-
+      - op: add
+        path: /spec/type
+        value: LoadBalancer
+      - op: replace
+        path: /spec/ports/0/port
+        value: 8080

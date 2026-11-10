@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: pawpal
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: pawpal
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - rabbitmq.yaml
+  - recommender.yaml
+  - review.yaml
+  - backend.yaml
+  - hpa.yaml
+  - frontend.yaml
