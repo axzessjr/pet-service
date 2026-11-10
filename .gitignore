@@ -19,3 +19,4 @@ review/certs/*
 !review/certs/.gitkeep
 frontend/src/atlas-credentials.env
 docs/
+**/secrets.env
