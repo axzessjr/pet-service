@@ -8,7 +8,7 @@ from uuid import uuid4
 import psycopg
 from psycopg import sql
 
-from store import RecommendationStore
+from store import RatingStore
 
 
 @unittest.skipUnless(os.getenv("TEST_DATABASE_URL"), "Set TEST_DATABASE_URL to run PostgreSQL integration tests")
@@ -29,9 +29,9 @@ class PostgresTestCase(unittest.TestCase):
             connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(cls.schema)))
 
     def setUp(self):
-        self.store = RecommendationStore(self.database_url, schema=self.schema)
+        self.store = RatingStore(self.database_url, schema=self.schema)
         self.addCleanup(self.store.close)
         with self.store.pool.connection() as connection:
-            connection.execute(sql.SQL("TRUNCATE {}.saved_recommendations, {}.service_ratings").format(
-                sql.Identifier(self.schema), sql.Identifier(self.schema)
+            connection.execute(sql.SQL("TRUNCATE {}.service_ratings").format(
+                sql.Identifier(self.schema)
             ))

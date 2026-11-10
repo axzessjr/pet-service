@@ -6,5 +6,4 @@ metadata:
 data:
   REVIEW_URL: http://review:3001
   RECOMMENDATION_GRPC_URL: recommender:50051
-  RECOMMENDATION_DB_PATH: /data/recommendations.sqlite3
   MONGODB_DB: reviews

@@ -92,12 +92,6 @@ describe('GatewayService with the real controllers', () => {
                 },
                 {
                     method: 'GET',
-                    path: '/recommendation/pets/:petId',
-                    service: 'recommender',
-                    protocol: 'grpc',
-                },
-                {
-                    method: 'GET',
                     path: '/catalog',
                     service: LOCAL_SERVICE,
                     protocol: 'in-process',

@@ -2,7 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import type { CatalogItem, MapRecommendation, Pet, Review, User } from '../types';
 import { EmptyState } from '../components/EmptyState';
-import { SavedListsDrawer } from '../components/SavedRecommendations';
+import type { MapFocus } from '../components/MapExplorer';
+import { SavedServicesDrawer } from '../components/SavedServicesDrawer';
 import { ServiceReviewsDialog } from '../components/ServiceReviewsDialog';
 import { ReviewDialog } from '../components/ReviewDialog';
 import { ownerIdOf } from '../reviewApi';
@@ -36,8 +37,9 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
     const [savedOpen, setSavedOpen] = useState(false);
     const [reviewing, setReviewing] = useState<MapRecommendation | null>(null);
     const [reviewSaved, setReviewSaved] = useState<Review | null>(null);
-    // Bumped to reopen the map somewhere else, e.g. at a saved service.
-    const [mapVersion, setMapVersion] = useState(0);
+    // A service to show on the map, e.g. from Saved. `version` asks again
+    // even when the same service is chosen twice.
+    const [focus, setFocus] = useState<MapFocus | null>(null);
     const ownerId = ownerIdOf(currentUser);
 
     useEffect(() => {
@@ -89,16 +91,13 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
         [setSearchParams],
     );
 
-    // Open the map at a service and show its details.
+    // Fly the map to a service and show its details.
     const showOnMap = (service: CatalogItem) => {
-        updateParams({
-            lat: service.location.lat.toFixed(5),
-            lng: service.location.lng.toFixed(5),
-            z: '17',
-            service: String(service.id),
-        });
         setSavedOpen(false);
-        setMapVersion((value) => value + 1);
+        setFocus((previous) => ({
+            service,
+            version: (previous?.version ?? 0) + 1,
+        }));
     };
 
     return (
@@ -145,7 +144,9 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
                                     <PetSwitcher
                                         pets={pets}
                                         selectedId={selectedPet.id}
-                                        onChoose={(pet) => updateParams({ pet: String(pet.id) })}
+                                        onChoose={(pet) =>
+                                            updateParams({ pet: String(pet.id) })
+                                        }
                                     />
                                 )}
                                 <button
@@ -178,10 +179,11 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
                     )}
 
                     <Suspense fallback={<FrameSkeleton />}>
-                        {/* A new pet starts a new search. */}
+                        {/* One map for every pet, so switching pets or
+                            showing a service moves it instead of reloading it. */}
                         <MapExplorer
-                            key={`${selectedPet.id}:${mapVersion}`}
                             pet={selectedPet}
+                            focus={focus}
                             params={searchParams}
                             updateParams={updateParams}
                             onShowReviews={setReviewsFor}
@@ -193,7 +195,7 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
                     </Suspense>
 
                     {savedOpen && (
-                        <SavedListsDrawer
+                        <SavedServicesDrawer
                             pet={selectedPet}
                             onShowOnMap={showOnMap}
                             onClose={() => setSavedOpen(false)}

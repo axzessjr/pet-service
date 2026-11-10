@@ -24,7 +24,7 @@ class ReviewEventTests(PostgresTestCase):
     def test_applies_event_and_ignores_redelivery(self):
         self.assertTrue(handle_review_event(self.store, message()))
         self.assertFalse(handle_review_event(self.store, message()))
-        self.assertEqual(self.store.ratings(), {101: (4.5, 2)})
+        self.assertEqual(self.store.ratings([101]), {101: (4.5, 2)})
 
     def test_rejects_invalid_events(self):
         for body in (
@@ -38,7 +38,7 @@ class ReviewEventTests(PostgresTestCase):
         ):
             with self.subTest(body=body), self.assertRaises(ValueError):
                 handle_review_event(self.store, body)
-        self.assertEqual(self.store.ratings(), {})
+        self.assertEqual(self.store.ratings([101]), {})
 
 
 if __name__ == "__main__":

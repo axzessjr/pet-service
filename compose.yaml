@@ -118,7 +118,5 @@ services:
         condition: service_healthy
 
 volumes:
-  # Retained only to export pre-migration SQLite data; no running service mounts it.
-  recommendation_data:
   review_data:
   rabbitmq_data:

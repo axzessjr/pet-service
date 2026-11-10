@@ -39,6 +39,8 @@ interface ResultsPanelProps {
     onBack: () => void;
     onShowReviews: (item: MapRecommendation) => void;
     onWriteReview: (item: MapRecommendation) => void;
+    // The top-ranked service when it covers the pet's needs.
+    bestId: number | null;
     // Beside the map on wide screens; a sheet over the map on phones.
     isDesktop: boolean;
 }
@@ -63,6 +65,7 @@ export function ResultsPanel({
     onBack,
     onShowReviews,
     onWriteReview,
+    bestId,
     isDesktop,
 }: ResultsPanelProps) {
     const [sort, setSort] = useState<SortKey>('match');
@@ -70,7 +73,7 @@ export function ResultsPanel({
     const [expanded, setExpanded] = useState(false);
     const listRef = useRef<HTMLDivElement>(null);
     const listScroll = useRef(0);
-    const lastSelectedId = useRef<number | null>(null);
+    const lastSelected = useRef<{ id: number; petId: number } | null>(null);
 
     const recommendations = data?.recommendations ?? [];
     const ranks = new Map(
@@ -86,27 +89,38 @@ export function ResultsPanel({
         sort,
     );
     const ordered = [...matched, ...others];
-    const hasNeeds = pet.needs.length > 0;
-    const bestId = hasNeeds ? matched.find((item) => ranks.get(item.service.id) === 1)?.service.id : undefined;
     const collapsed = !isDesktop && !expanded;
 
     // Coming back from a service: restore the list where it was and put
-    // focus on the service that was open.
+    // focus on the service that was open. Not after a pet switch, and not
+    // when focus has gone somewhere else (such as the pet switcher).
     useLayoutEffect(() => {
         if (selected) {
-            lastSelectedId.current = selected.service.id;
+            lastSelected.current = { id: selected.service.id, petId: pet.id };
             return;
         }
-        const id = lastSelectedId.current;
-        lastSelectedId.current = null;
-        if (id === null) return;
+        const last = lastSelected.current;
+        lastSelected.current = null;
+        if (last === null || last.petId !== pet.id) return;
         if (listRef.current) listRef.current.scrollTop = listScroll.current;
+        const active = document.activeElement;
+        const focusLost =
+            active === null ||
+            active === document.body ||
+            Boolean(document.getElementById('results-panel')?.contains(active));
+        if (!focusLost) return;
         // A collapsed sheet may not show that row; fall back to the heading.
         (
-            document.getElementById(`service-row-${id}`) ??
+            document.getElementById(`service-row-${last.id}`) ??
             document.getElementById('results-heading')
         )?.focus({ preventScroll: true });
-    }, [selected]);
+    }, [selected, pet.id]);
+
+    // Another pet's results start at the top.
+    useEffect(() => {
+        listScroll.current = 0;
+        if (listRef.current) listRef.current.scrollTop = 0;
+    }, [pet.id]);
 
     let heading = 'Searching this area...';
     if (data) {
@@ -247,7 +261,7 @@ export function ResultsPanel({
                 )}
 
                 {shownMatched.length > 0 && (
-                    <ol className="m-0 list-none divide-y divide-gray-100 p-0">
+                    <ol className="results-fade-in m-0 list-none divide-y divide-gray-100 p-0">
                         {shownMatched.map((item) => (
                             <ServiceRow
                                 key={item.service.id}
@@ -268,7 +282,7 @@ export function ResultsPanel({
                         <h4 className="m-0 border-y border-gray-200 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700">
                             Also nearby · doesn’t cover {pet.name}’s needs
                         </h4>
-                        <ul className="m-0 list-none divide-y divide-gray-100 p-0">
+                        <ul className="results-fade-in m-0 list-none divide-y divide-gray-100 p-0">
                             {shownOthers.map((item) => (
                                 <ServiceRow
                                     key={item.service.id}
@@ -287,7 +301,7 @@ export function ResultsPanel({
 
                 {collapsed && hiddenCount > 0 && (
                     <p className="sr-only">
-                        {hiddenCount} more. Choose “Show all” to see them.
+                        {hiddenCount} more. Choose “See all” to see them.
                     </p>
                 )}
 

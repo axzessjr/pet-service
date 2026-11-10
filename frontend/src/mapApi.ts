@@ -10,6 +10,9 @@ export const MIN_ZOOM = 11;
 export const MAX_ZOOM = 19;
 // Wait this long after the map stops moving, or typing stops, before fetching.
 export const DEBOUNCE_MS = 400;
+// The API's limits on the search text and the price filter.
+export const MAX_SEARCH_LENGTH = 100;
+export const MAX_PRICE = 1_000_000;
 
 export type Viewport = {
     bounds: MapBounds;
@@ -34,12 +37,17 @@ export const RATING_OPTIONS = [
 
 // Filters and the map position live in the URL, so a view can be shared and
 // survives a refresh.
+// Values the API would refuse (from an edited link) read as unset.
 export function readFilters(params: URLSearchParams): MapFilters {
+    const price = params.get('price') ?? '';
+    const rating = params.get('rating') ?? '';
     return {
-        q: params.get('q') ?? '',
+        q: (params.get('q') ?? '').slice(0, MAX_SEARCH_LENGTH),
         category: params.get('cat') ?? '',
-        maxPrice: params.get('price') ?? '',
-        minRating: params.get('rating') ?? '',
+        maxPrice: Number(price) > 0 && Number(price) <= MAX_PRICE ? price : '',
+        minRating: RATING_OPTIONS.some((option) => option.value === rating)
+            ? rating
+            : '',
         includeUnmatched: params.get('others') !== '0',
     };
 }
@@ -81,6 +89,18 @@ export function readPosition(params: URLSearchParams): {
     };
 }
 
+export function containsPoint(
+    bounds: MapBounds,
+    point: { lat: number; lng: number },
+): boolean {
+    return (
+        point.lat >= bounds.minLat &&
+        point.lat <= bounds.maxLat &&
+        point.lng >= bounds.minLng &&
+        point.lng <= bounds.maxLng
+    );
+}
+
 // A small pan (under a tenth of the view on every edge) at the same zoom
 // does not change what is worth showing, so it does not fetch again.
 export function barelyChanged(a: Viewport, b: Viewport): boolean {
@@ -97,7 +117,7 @@ export function barelyChanged(a: Viewport, b: Viewport): boolean {
 
 // Bounds are rounded outwards to 3 decimals (about 100 m) so nearby views
 // share a cache entry without leaving out anything visible.
-export function mapRequestUrl(
+function mapRequestUrl(
     petId: number,
     viewport: Viewport,
     filters: MapFilters,
@@ -113,7 +133,9 @@ export function mapRequestUrl(
     });
     if (filters.q.trim()) params.set('q', filters.q.trim());
     if (filters.category) params.set('category', filters.category);
-    if (Number(filters.maxPrice) > 0) params.set('maxPrice', filters.maxPrice);
+    if (Number(filters.maxPrice) > 0 && Number(filters.maxPrice) <= MAX_PRICE) {
+        params.set('maxPrice', filters.maxPrice);
+    }
     if (filters.minRating) params.set('minRating', filters.minRating);
     if (filters.includeUnmatched) params.set('includeUnmatched', 'true');
     return `/api/recommendation/pets/${petId}/map?${params}`;
@@ -130,13 +152,7 @@ async function fetchMap(
     const hit = cache.get(url);
     if (hit) return hit;
     const response = await fetch(url, { signal });
-    if (!response.ok) {
-        throw new Error(
-            response.status === 400
-                ? 'This area is too large to search. Zoom in and try again.'
-                : 'Recommendations are temporarily unavailable.',
-        );
-    }
+    if (!response.ok) throw new Error(await failureMessage(response));
     const data = (await response.json()) as MapRecommendations;
     cache.set(url, data);
     if (cache.size > CACHE_SIZE) {
@@ -146,10 +162,24 @@ async function fetchMap(
     return data;
 }
 
+async function failureMessage(response: Response): Promise<string> {
+    if (response.status === 404) {
+        return 'This pet no longer exists. Reload the page to pick another.';
+    }
+    if (response.status === 400) {
+        // The API explains what it refused, e.g. an area that is too large.
+        const body = (await response.json().catch(() => null)) as {
+            message?: unknown;
+        } | null;
+        if (typeof body?.message === 'string') return body.message;
+    }
+    return 'Recommendations are temporarily unavailable.';
+}
+
 // The catalog, fetched once per session.
 let catalogRequest: Promise<CatalogItem[]> | null = null;
 
-function loadCatalog(): Promise<CatalogItem[]> {
+export function loadCatalog(): Promise<CatalogItem[]> {
     catalogRequest ??= fetch('/api/catalog')
         .then((response) => {
             if (!response.ok) throw new Error('Could not load the catalog.');

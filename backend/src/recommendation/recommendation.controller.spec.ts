@@ -1,68 +1,6 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { RecommendationController } from './recommendation.controller';
 import { RecommendationService } from './recommendation.service';
-import type {
-    MapRecommendations,
-    PetRecommendations,
-} from './recommendation.types';
-
-describe('RecommendationController', () => {
-    let controller: RecommendationController;
-    const recommendForPet = jest.fn<
-        ReturnType<RecommendationService['recommendForPet']>,
-        Parameters<RecommendationService['recommendForPet']>
-    >();
-    const recommendations: PetRecommendations = {
-        pet: {
-            id: 2,
-            name: 'Milo',
-            species: 'dog',
-            needs: [],
-            maxPrice: 2000,
-            userId: 1,
-        },
-        recommendations: [],
-    };
-
-    beforeEach(async () => {
-        recommendForPet.mockReset().mockResolvedValue(recommendations);
-        const module: TestingModule = await Test.createTestingModule({
-            controllers: [RecommendationController],
-            providers: [
-                {
-                    provide: RecommendationService,
-                    useValue: { recommendForPet },
-                },
-            ],
-        }).compile();
-
-        controller = module.get<RecommendationController>(
-            RecommendationController,
-        );
-    });
-
-    it('should be defined', () => {
-        expect(controller).toBeDefined();
-    });
-
-    it('uses the default limit when none is given', async () => {
-        await expect(controller.getForPet(2)).resolves.toBe(recommendations);
-        expect(recommendForPet).toHaveBeenCalledWith(2);
-    });
-
-    it('passes a valid limit through', async () => {
-        await expect(controller.getForPet(2, '10')).resolves.toBe(
-            recommendations,
-        );
-        expect(recommendForPet).toHaveBeenCalledWith(2, 10);
-    });
-
-    it.each(['0', '101', '2.5', 'abc', ''])('rejects limit %p', (limit) => {
-        expect(() => controller.getForPet(2, limit)).toThrow(
-            'limit must be between 1 and 100',
-        );
-    });
-});
+import type { MapRecommendations } from './recommendation.types';
 
 describe('RecommendationController map route', () => {
     const recommendForMap = jest.fn<

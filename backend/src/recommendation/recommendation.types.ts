@@ -9,11 +9,6 @@ export interface Recommendation {
     reviewCount: number;
 }
 
-export interface PetRecommendations {
-    pet: Pet;
-    recommendations: Recommendation[];
-}
-
 export interface MapBounds {
     minLat: number;
     minLng: number;
@@ -64,28 +59,17 @@ export interface RecommendationRequest {
     limit: number;
 }
 
+// As decoded from the wire: proto3 leaves out empty repeated fields and zero
+// values, so `matches` is missing when nothing matched, and the ratings are
+// missing for an unreviewed service.
 export interface RecommendationResponse {
-    matches: RecommendationMatch[];
+    matches?: RecommendationMatch[];
 }
 
 export interface RecommendationMatch {
     serviceId: number;
-    score: number;
-    matchedNeeds: string[];
-    // 0 when the service has no reviews.
-    averageRating: number;
-    reviewCount: number;
-}
-
-export interface SavedRecommendation {
-    id: string;
-    petId: number;
-    limit: number;
-    matches: RecommendationMatch[];
-    createdAt: string;
-    updatedAt: string;
-}
-
-export interface ListRecommendationsResponse {
-    recommendations: SavedRecommendation[];
+    score?: number;
+    matchedNeeds?: string[];
+    averageRating?: number;
+    reviewCount?: number;
 }

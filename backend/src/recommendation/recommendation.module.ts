@@ -6,7 +6,6 @@ import { UPSTREAMS } from '../gateway/upstreams';
 import { PetProfileModule } from '../pet-profile/pet-profile.module';
 import { RecommendationService } from './recommendation.service';
 import { RecommendationController } from './recommendation.controller';
-import { SavedRecommendationController } from './saved-recommendation.controller';
 
 @Module({
     imports: [
@@ -27,7 +26,7 @@ import { SavedRecommendationController } from './saved-recommendation.controller
             },
         ]),
     ],
-    controllers: [RecommendationController, SavedRecommendationController],
+    controllers: [RecommendationController],
     providers: [RecommendationService],
 })
 export class RecommendationModule {}

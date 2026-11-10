@@ -7,7 +7,7 @@ Manifest สำหรับรันบน Docker Desktop Kubernetes (`overlays/
 | frontend (nginx) | `frontend:80` (local: `localhost:8080`) | Deployment |
 | API Gateway | `backend:3000` | Deployment + HPA (1 ถึง 3 pod ที่ CPU 70%) |
 | Review service | `review:3001` | Deployment (local: 2 replica) |
-| Recommender | `recommender:50051` | StatefulSet + PVC (SQLite) |
+| Recommender | `recommender:50051` | Deployment (rating cache อยู่ใน Supabase PostgreSQL) |
 | RabbitMQ | `rabbitmq:5672` | StatefulSet + PVC |
 
 ## รันบน Docker Desktop
@@ -33,3 +33,11 @@ Manifest สำหรับรันบน Docker Desktop Kubernetes (`overlays/
    kubectl -n pawpal get pods -w
    ```
 6. เปิด <http://localhost:8080>
+
+ถ้าเคย deploy recommender แบบ StatefulSet (SQLite) ไว้ก่อนหน้า ให้ลบของเก่าก่อน เพราะ `kubectl apply` จะไม่ลบให้เอง
+
+```powershell
+kubectl -n pawpal delete statefulset recommender --ignore-not-found
+kubectl -n pawpal delete service recommender-headless --ignore-not-found
+kubectl -n pawpal delete pvc data-recommender-0 --ignore-not-found
+```
