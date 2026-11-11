@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { authFetch } from '../authFetch';
 import type { CatalogItem, Pet, Review, ServiceRating, User } from '../types';
 import { EmptyState } from '../components/EmptyState';
 import { ReviewDialog } from '../components/ReviewDialog';
@@ -128,7 +129,7 @@ export function CatalogPage({ currentUser }: CatalogPageProps) {
     useEffect(() => {
         if (!currentUser?.id) return;
         const controller = new AbortController();
-        fetch(`/api/pet-profile/me?userId=${currentUser.id}`, { signal: controller.signal })
+        authFetch(`/api/pet-profile/me?userId=${currentUser.id}`, { signal: controller.signal })
             .then((response) => {
                 if (!response.ok) throw new Error('Could not load pets.');
                 return response.json() as Promise<Pet[]>;

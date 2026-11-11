@@ -6,7 +6,12 @@ import { ProfilePage } from './pages/ProfilePage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+    clearAuthToken,
+    getAuthToken,
+    UNAUTHORIZED_EVENT,
+} from './authFetch';
 import { HOME_PATH } from './routes';
 import type { User } from './types';
 import './App.css';
@@ -25,7 +30,10 @@ function ProtectedRoute({ isLoggedIn, children }: ProtectedRouteProps) {
 
 function App() {
     const [isLoggedIn, setLoggedIn] = useState<boolean>(() => {
-        return localStorage.getItem('isLoggedIn') === 'true';
+        return (
+            localStorage.getItem('isLoggedIn') === 'true' &&
+            Boolean(getAuthToken())
+        );
     });
     const [currentUser, setCurrentUser] = useState<User | null>(() => {
         const userInfo = localStorage.getItem('userInfo');
@@ -35,12 +43,19 @@ function App() {
         return null;
     });
 
-    const handleLogout = () => {
+    const handleLogout = useCallback(() => {
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('userInfo');
+        clearAuthToken();
         setLoggedIn(false);
         setCurrentUser(null);
-    }
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener(UNAUTHORIZED_EVENT, handleLogout);
+        return () =>
+            window.removeEventListener(UNAUTHORIZED_EVENT, handleLogout);
+    }, [handleLogout]);
 
     // After the profile page saves new account details.
     const handleUserUpdated = (user: User) => {

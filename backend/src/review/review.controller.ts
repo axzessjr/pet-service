@@ -12,7 +12,10 @@ import {
     Post,
     Query,
     StreamableFile,
+    UseGuards,
 } from '@nestjs/common';
+import { CurrentUser, JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthenticatedUser } from '../auth/jwt.strategy';
 import { Upstream } from '../gateway/upstreams';
 import { PHOTO_TIMEOUT_MS, ReviewService } from './review.service';
 
@@ -32,9 +35,15 @@ export class ReviewsController {
 
     // Body: { serviceId, ownerId, petId?, rating, aspects?, title?, comment?,
     //         visitedOn?, tags?, wouldRecommend?, photos? (base64, up to 4) }
+    @UseGuards(JwtAuthGuard)
     @Post()
-    create(@Body() body: Record<string, unknown>) {
-        return this.reviews.createReview(body);
+    create(
+        @Body() body: Record<string, unknown>,
+        @CurrentUser() user?: AuthenticatedUser,
+    ) {
+        return this.reviews.createReview(
+            user ? { ...body, ownerId: user.userId } : body,
+        );
     }
 
     @Get()
@@ -64,19 +73,33 @@ export class ReviewsController {
 
     // Body: { ownerId, rating?, aspects?, title?, comment?, visitedOn?, tags?,
     //         wouldRecommend?, addPhotos?, removePhotoIds? }
+    @UseGuards(JwtAuthGuard)
     @Patch(':id')
-    update(@Param('id') id: string, @Body() body: unknown) {
+    update(
+        @Param('id') id: string,
+        @Body() body: unknown,
+        @CurrentUser() user?: AuthenticatedUser,
+    ) {
+        const payload =
+            user && typeof body === 'object' && body !== null
+                ? { ...(body as Record<string, unknown>), ownerId: user.userId }
+                : body;
         return this.reviews.forward('PATCH', `/reviews/${mongoId(id, 'id')}`, {
-            body,
+            body: payload,
             timeoutMs: PHOTO_TIMEOUT_MS,
         });
     }
 
+    @UseGuards(JwtAuthGuard)
     @Delete(':id')
     @HttpCode(HttpStatus.NO_CONTENT)
-    async remove(@Param('id') id: string, @Query('ownerId') ownerId: string) {
+    async remove(
+        @Param('id') id: string,
+        @Query('ownerId') ownerId?: string,
+        @CurrentUser() user?: AuthenticatedUser,
+    ) {
         await this.reviews.forward('DELETE', `/reviews/${mongoId(id, 'id')}`, {
-            query: { ownerId },
+            query: { ownerId: user ? String(user.userId) : ownerId },
         });
     }
 }

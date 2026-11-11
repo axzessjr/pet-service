@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { authFetch } from '../authFetch';
 import type { CatalogItem, MapRecommendation, Pet, Review, User } from '../types';
 import { EmptyState } from '../components/EmptyState';
 import type { MapFocus } from '../components/MapExplorer';
@@ -45,7 +46,7 @@ export function RecommendationsPage({ currentUser }: RecommendationsPageProps) {
     useEffect(() => {
         if (!currentUser?.id) return;
         const controller = new AbortController();
-        fetch(`/api/pet-profile/me?userId=${currentUser.id}`, {
+        authFetch(`/api/pet-profile/me?userId=${currentUser.id}`, {
             signal: controller.signal,
         })
             .then((response) => {

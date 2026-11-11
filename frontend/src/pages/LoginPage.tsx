@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { useLoading } from '../context/useLoading';
 import { controlClass, primaryButtonClass } from '../components/ui';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { setAuthToken } from '../authFetch';
 import { HOME_PATH } from '../routes';
 import type { User } from '../types';
 
@@ -44,6 +45,9 @@ export function LoginPage({ setLoggedIn, setCurrentUser }: LoginPageProps) {
             const data = await response.json().catch(() => ({}));
 
             if (response.ok) {
+                if (typeof data.access_token === 'string') {
+                    setAuthToken(data.access_token);
+                }
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('userInfo', JSON.stringify(data.user));
                 setLoggedIn(true);

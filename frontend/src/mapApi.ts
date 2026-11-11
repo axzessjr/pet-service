@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { authFetch } from './authFetch';
 import { SERVICE_CATEGORIES } from './components/ui';
 import type { CatalogItem, MapBounds, MapRecommendations } from './types';
 
@@ -151,7 +152,7 @@ async function fetchMap(
 ): Promise<MapRecommendations> {
     const hit = cache.get(url);
     if (hit) return hit;
-    const response = await fetch(url, { signal });
+    const response = await authFetch(url, { signal });
     if (!response.ok) throw new Error(await failureMessage(response));
     const data = (await response.json()) as MapRecommendations;
     cache.set(url, data);

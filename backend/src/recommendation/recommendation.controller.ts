@@ -1,8 +1,17 @@
-import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import {
+    Controller,
+    Get,
+    Param,
+    ParseIntPipe,
+    Query,
+    UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Upstream } from '../gateway/upstreams';
 import { parseMapQuery } from './map';
 import { RecommendationService } from './recommendation.service';
 
+@UseGuards(JwtAuthGuard)
 @Upstream('recommender')
 @Controller('recommendation')
 export class RecommendationController {

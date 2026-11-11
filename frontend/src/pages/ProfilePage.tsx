@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
+import { authFetch } from '../authFetch';
 import type { CatalogItem, Pet, User } from '../types';
 import { EmptyState } from '../components/EmptyState';
 import {
@@ -94,7 +95,7 @@ function AccountSection({ currentUser, onUserUpdated }: ProfilePageProps) {
 
         setBusy(true);
         try {
-            const response = await fetch(`/api/users/${currentUser.id}`, {
+            const response = await authFetch(`/api/users/${currentUser.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(next),
@@ -238,7 +239,7 @@ function PetsSection({ currentUser }: { currentUser: User | null }) {
     useEffect(() => {
         if (!currentUser?.id) return;
         const controller = new AbortController();
-        fetch(`/api/pet-profile/me?userId=${currentUser.id}`, { signal: controller.signal })
+        authFetch(`/api/pet-profile/me?userId=${currentUser.id}`, { signal: controller.signal })
             .then((response) => {
                 if (!response.ok) throw new Error('Could not load your pets.');
                 return response.json() as Promise<Pet[]>;
@@ -332,7 +333,7 @@ function PetsSection({ currentUser }: { currentUser: User | null }) {
         setError(null);
 
         try {
-            const response = await fetch(
+            const response = await authFetch(
                 isNew ? '/api/pet-profile' : `/api/pet-profile/${editingId}`,
                 {
                     method: isNew ? 'POST' : 'PATCH',
@@ -365,7 +366,7 @@ function PetsSection({ currentUser }: { currentUser: User | null }) {
         setMessage(null);
 
         try {
-            const response = await fetch(`/api/pet-profile/${pet.id}?userId=${currentUser.id}`, {
+            const response = await authFetch(`/api/pet-profile/${pet.id}?userId=${currentUser.id}`, {
                 method: 'DELETE'
             });
             if (!response.ok) throw new Error();

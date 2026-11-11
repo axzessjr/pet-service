@@ -1,3 +1,4 @@
+import { authFetch } from './authFetch';
 import type { Aspects, Review, ServiceRating } from './types';
 
 // The API rejects text IDs, but login returns the user ID as text.
@@ -16,7 +17,7 @@ async function request<T>(
     fallback: string,
     init: { method?: string; body?: unknown; signal?: AbortSignal } = {},
 ): Promise<T> {
-    const response = await fetch(`/api${path}`, {
+    const response = await authFetch(`/api${path}`, {
         method: init.method,
         signal: init.signal,
         headers:

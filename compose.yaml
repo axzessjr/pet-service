@@ -64,18 +64,9 @@ services:
       dockerfile: review/Dockerfile
     expose:
       - "3001"
-    volumes:
-      # Atlas X.509 client credential. Never copied into the image.
-      - type: bind
-        source: ./atlas-client.pem
-        target: /run/secrets/atlas-client.pem
-        read_only: true
-        bind:
-          create_host_path: false
     environment:
       MONGODB_URL: ${MONGODB_URL:?Set MONGODB_URL in the root .env}
       MONGODB_DB: ${MONGODB_DB:-reviews}
-      MONGODB_TLS_CERTIFICATE_KEY_FILE: /run/secrets/atlas-client.pem
       RABBITMQ_URL: amqp://pawpal:pawpal@rabbitmq:5672
     # RabbitMQ is not required to start: events stay pending in Atlas until it is up.
     healthcheck:
