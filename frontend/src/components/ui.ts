@@ -1,4 +1,4 @@
-import type { AspectKey, PetRecommendations } from '../types';
+import type { AspectKey, Recommendation } from '../types';
 
 // Shared Tailwind classes for form controls and buttons.
 export const controlClass =
@@ -123,7 +123,6 @@ export function formatDay(value: string): string {
         : date.toLocaleDateString(undefined, { dateStyle: 'medium' });
 }
 
-export type Recommendation = PetRecommendations['recommendations'][number];
 export type SortKey = 'match' | 'rating' | 'price';
 
 export const SORT_OPTIONS: { key: SortKey; label: string }[] = [

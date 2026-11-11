@@ -1,6 +1,6 @@
 # Pawpal
 
-Pawpal is a pet service catalog with recommendations for a selected pet. The React frontend calls a NestJS HTTP API, which acts as the API gateway. NestJS sends the pet and current catalog over gRPC to a Python service, which ranks compatible services by tag similarity. The Python service can also save, read, recalculate, and delete recommendation sets.
+Pawpal is a pet service catalog with recommendations for a selected pet. The React frontend calls a NestJS HTTP API, which acts as the API gateway. NestJS sends the pet and current catalog over gRPC to a Python service, which ranks compatible services by tag similarity.
 
 After using a service, pet owners can review it with a rating, text, and photos. Reviews are kept by the review service, a separate NestJS service that stores them in MongoDB Atlas. Each review change is published to RabbitMQ, and the recommender uses the resulting average ratings to break ranking ties.
 
@@ -12,7 +12,6 @@ The frontend, NestJS API, Python recommender, review service, and RabbitMQ run o
 | --- | --- |
 | Users and pets | Supabase PostgreSQL (`users`, `pets`) |
 | Service catalog | Supabase PostgreSQL (`catalog_services`) |
-| Saved recommendation lists | Supabase PostgreSQL (`saved_recommendations`) |
 | Cached review ratings | Supabase PostgreSQL (`service_ratings`) |
 | Reviews and photos | MongoDB Atlas (`reviews` and GridFS `review_photos`) |
 | Queued review events | Local RabbitMQ Docker volume |
@@ -37,7 +36,7 @@ npm.cmd run db:check-cloud
 cd ..
 ```
 
-The PostgreSQL migration is transactional and repeatable. It inserts missing catalog IDs without overwriting cloud edits. The 60 entries in `backend/src/catalog/catalog.data.ts` are migration seed/test data only; runtime requests read the database. Row-level security is enabled on the three new tables without public policies, so access goes through the server-side database connection.
+The PostgreSQL migration is transactional and repeatable. It inserts missing catalog IDs without overwriting cloud edits. The 60 entries in `backend/src/catalog/catalog.data.ts` are migration seed/test data only; runtime requests read the database. Row-level security is enabled on the new tables without public policies, so access goes through the server-side database connection.
 
 Both private files are ignored by Git and excluded from image builds. Compose mounts only the certificate read-only at `/run/secrets/atlas-client.pem`; native commands resolve the certificate relative to the repository root. Replace expiring certificates in this location and recreate the review container to load the replacement.
 
@@ -55,21 +54,13 @@ docker compose up -d --build
 
 Open <http://localhost:5173>. The API is at <http://localhost:3000>. RabbitMQ's management UI is at <http://localhost:15672> (user `pawpal`, password `pawpal`). Its AMQP port is bound to `127.0.0.1:5672` for native local services. Stop the stack with `docker compose down`; keep its persistent RabbitMQ volume.
 
-The normal stack starts no local application database. The `migration` profile exposes the old MongoDB volume on `127.0.0.1:27018` solely for copying existing data. The old recommendation volume is retained but no application service mounts it.
+The normal stack starts no local application database. The `migration` profile exposes the old MongoDB volume on `127.0.0.1:27018` solely for copying existing data.
 
 ## Migrate existing local data
 
-Stop the old application services before copying data so their contents stay consistent. Preserve the old volumes and backups until both cloud databases have been verified; do not use `docker compose down -v` during migration.
+Stop the old application services before copying data so their contents stay consistent. Preserve the old volume and backups until Atlas has been verified; do not use `docker compose down -v` during migration.
 
-For saved lists, export the old SQLite database using SQLite's backup API, including any journal files in the snapshot. For native development its default path was `recommender/recommendations.sqlite3`; Docker used `pet-service_recommendation_data`. Import a consistent snapshot with:
-
-```powershell
-.\.venv-cloud\Scripts\python.exe recommender/migrate_sqlite.py .migration/recommendations.sqlite3
-```
-
-The importer keeps saved IDs and timestamps, migrates rating versions as 64-bit integers, and uses a single PostgreSQL transaction. Repeating it is safe: differing saved records cause a rollback, and newer cloud rating versions are retained. It never deletes the SQLite source.
-
-For reviews, set the Atlas destination in the root `.env`, then:
+To copy reviews, set the Atlas destination in the root `.env`, then:
 
 ```powershell
 docker compose --profile migration up -d review-db
@@ -100,7 +91,7 @@ python -m venv .venv-cloud
 .\.venv-cloud\Scripts\python.exe recommender/server.py
 ```
 
-The recommender requires `DATABASE_URL`; there is no SQLite fallback. It uses the local broker by default. Set `RABBITMQ_URL` to override it.
+The recommender requires `DATABASE_URL`. It uses the local broker by default. Set `RABBITMQ_URL` to override it.
 
 ```powershell
 # Terminal 2: review service
@@ -130,7 +121,7 @@ The Vite proxy calls `localhost:3000` (override with `BACKEND_URL`). The API cal
 
 Open **For my pet** at <http://localhost:5173/recommendations>. The page is a map of the services that fit your pet (see [Map](#map)); if you have more than one pet, choose one at the top. For the area on screen, NestJS loads the pet and the catalog services there, sends them to the Python service over gRPC, then adds catalog details to the ranked matches it receives.
 
-Choose **Saved lists** to open the selected pet's saved sets. **Save snapshot** saves the pet's top 10 matches, ranked across the whole catalog rather than only the area on the map. Open a set to see its ranked services, choose **Update with latest** to recalculate it from the current pet and catalog data, or choose **Delete** and confirm to remove it. Switching pets shows that pet's saved sets.
+Choose **Save** in a service's details to bookmark it for the selected pet, and **Saved** at the top to see that pet's bookmarks. Bookmarks are kept in this browser only.
 
 **What it uses to find services:**
 
@@ -152,18 +143,6 @@ Suppose a dog needs `exercise` and `social` care and has a ฿1,600 budget. Afte
 | Active Dog Adventure (`104`, ฿1,350) | `exercise`, `social`, `outdoors` | `[1, 1, 1]` | `0.8165` |
 
 The code gives the two service vectors to scikit-learn's `NearestNeighbors`, then searches with the pet vector. With cosine distance, Dog Walk is an exact match (`distance = 0`, so `score = 1 - 0 = 1.0`). Adventure has one extra tag (`distance ≈ 0.1835`, so `score ≈ 0.8165`). Dog Walk ranks first. The code asks for every eligible service, then keeps the highest-scoring results. Review ratings only break ties, so they never lift a service above a closer tag match. See the [ranking details](recommender/README.md) for the full algorithm.
-
-The existing `GET /recommendation/pets/:petId` calculates live recommendations without saving them. Saved sets use these endpoints:
-
-| Method | Path | Action |
-| --- | --- | --- |
-| `POST` | `/recommendations` | Create a set from `{ "petId": 1, "limit": 5 }`; `limit` defaults to 5. |
-| `GET` | `/recommendations/:id` | Read one saved set. |
-| `GET` | `/recommendations?petId=1` | List sets for a pet. |
-| `PUT` | `/recommendations/:id` | Recalculate a set from the current pet and catalog with `{ "limit": 5 }`. |
-| `DELETE` | `/recommendations/:id` | Delete a set; returns HTTP 204. |
-
-The saved response contains `id`, `petId`, `limit`, `matches` (service IDs, scores, matched needs), `createdAt`, and `updatedAt`. A saved set is a snapshot. Reading it does not recalculate it; `PUT` does. Missing sets return HTTP 404. The API currently does not enforce user ownership, so these routes should be protected before exposing them to untrusted clients.
 
 ### Map
 
@@ -225,7 +204,7 @@ Reviews live in MongoDB in the review service, a separate NestJS service.
 
 Review IDs and photo IDs are 24-character MongoDB ObjectIds.
 
-An edit that arrives while another edit of the same review is in progress returns HTTP 409. Another owner's review returns HTTP 404. Like the pet and saved-set routes, these routes trust the `ownerId` in the request, so add authentication before exposing them to untrusted clients.
+An edit that arrives while another edit of the same review is in progress returns HTTP 409. Another owner's review returns HTTP 404. Like the pet routes, these routes trust the `ownerId` in the request, so add authentication before exposing them to untrusted clients.
 
 ### Photos
 
@@ -258,12 +237,12 @@ If RabbitMQ is down, reviews are still saved and stay marked until it returns. M
 
 - `GET /catalog` reads services from Supabase, initially seeded with 60 example services with species, category, care tags, price, and a location near Chulalongkorn University. Add `?q=groom` (title, provider, description, category, tags, district, or address) and `?category=Grooming` to search it.
 - `GET /pet-profile/me` reads pets from the configured PostgreSQL database. Each pet has care needs and a maximum service price.
-- `GET /recommendation/pets/:petId` returns up to five services with matching need tags.
+- `GET /recommendation/pets/:petId/map` ranks the services in the visible map area for a pet (see [Map](#map)).
 - A pet without care needs receives compatible services ordered by review rating, then price.
 
-Live and saved recommendation matches also include `averageRating` and `reviewCount`.
+Recommendation matches also include `averageRating` and `reviewCount`.
 
-The catalog and pets are read from Supabase PostgreSQL. NestJS sends current catalog candidates in each recommendation request, so the Python service does not need a separate copy of catalog data. Saved recommendation sets and the rating cache also persist in Supabase.
+The catalog and pets are read from Supabase PostgreSQL. NestJS sends current catalog candidates in each recommendation request, so the Python service does not need a separate copy of catalog data. The rating cache also persists in Supabase.
 
 ## Verify
 
@@ -290,6 +269,6 @@ docker compose config --quiet
 ```
 
 Python gRPC bindings are generated during the Docker build or by the local command above.
-With the recommender running locally, run `node test/grpc-contract-smoke.js` from `backend` to check the NestJS-to-Python CRUD contract.
+With the recommender running locally, run `node test/grpc-contract-smoke.js` from `backend` to check the NestJS-to-Python `Recommend` contract.
 
-PostgreSQL persistence, event, migration, and gRPC integration tests require `TEST_DATABASE_URL`. They create and remove randomly named test schemas without modifying application tables. Without it, those tests are explicitly skipped; ranking tests still run.
+PostgreSQL persistence, event, and gRPC integration tests require `TEST_DATABASE_URL`. They create and remove randomly named test schemas without modifying application tables. Without it, those tests are explicitly skipped; ranking tests still run.

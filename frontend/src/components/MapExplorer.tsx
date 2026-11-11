@@ -1,9 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type L from 'leaflet';
-import type { MapRecommendation, MapRecommendations, Pet } from '../types';
+import type {
+    CatalogItem,
+    MapRecommendation,
+    MapRecommendations,
+    Pet,
+} from '../types';
 import {
+    containsPoint,
     DEBOUNCE_MS,
     filterParams,
+    MAX_PRICE,
     MIN_ZOOM,
     readFilters,
     readPosition,
@@ -19,9 +26,36 @@ import { ResultsPanel } from './ResultsPanel';
 import { mapFrameHeightClass } from './ui';
 
 const FRAME_MAX_HEIGHT = 800;
+// Close enough that every service in view is listed (detail mode).
+const FOCUS_ZOOM = 17;
+
+// A request to show a service. A new `version` asks again, even for the
+// same service.
+export type MapFocus = { service: CatalogItem; version: number };
+
+// A service to open once results that would include it arrive. Without a
+// location (from a ?service= link), the first results decide.
+type PendingFocus = {
+    id: number;
+    location: { lat: number; lng: number } | null;
+};
+
+function covers(data: MapRecommendations, pending: PendingFocus): boolean {
+    return (
+        pending.location === null ||
+        (data.mode === 'detail' && containsPoint(data.bounds, pending.location))
+    );
+}
+
+function prefersReducedMotion(): boolean {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
 
 interface MapExplorerProps {
     pet: Pet;
+    // Show this service: the map opens there, or flies there when it is
+    // already open, and shows its details once results load.
+    focus?: MapFocus | null;
     params: URLSearchParams;
     updateParams: (patch: Record<string, string | null>) => void;
     onShowReviews: (item: MapRecommendation) => void;
@@ -33,6 +67,7 @@ interface MapExplorerProps {
 // above it and the results in a sheet over its bottom edge.
 export function MapExplorer({
     pet,
+    focus = null,
     params,
     updateParams,
     onShowReviews,
@@ -41,7 +76,17 @@ export function MapExplorer({
     const isDesktop = useMediaQuery(DESKTOP_QUERY);
     const filters = readFilters(params);
     // The map keeps its own position after it opens; the URL follows it.
-    const [initial] = useState(() => readPosition(params));
+    const [initial] = useState(() =>
+        focus
+            ? {
+                  center: {
+                      lat: focus.service.location.lat,
+                      lng: focus.service.location.lng,
+                  },
+                  zoom: FOCUS_ZOOM,
+              }
+            : readPosition(params),
+    );
     const [viewport, setViewport] = useState<Viewport | null>(null);
     const [qInput, setQInput] = useState(filters.q);
     const [priceInput, setPriceInput] = useState(filters.maxPrice);
@@ -50,6 +95,45 @@ export function MapExplorer({
     const [map, setMap] = useState<L.Map | null>(null);
     const frameRef = useRef<HTMLDivElement>(null);
     const area = useServiceArea();
+    const [pending, setPending] = useState<PendingFocus | null>(() => {
+        if (focus) {
+            return { id: focus.service.id, location: focus.service.location };
+        }
+        const id = Number(params.get('service'));
+        return Number.isSafeInteger(id) && id > 0 ? { id, location: null } : null;
+    });
+    const [focusVersion, setFocusVersion] = useState(focus?.version ?? 0);
+    const [flight, setFlight] = useState<MapFocus | null>(null);
+    const [shownPetId, setShownPetId] = useState(pet.id);
+
+    // The map stays mounted across these, so it keeps its basemap and
+    // position. (Adjusting state while rendering, so nothing stale paints.)
+    // Another pet: same place, new results.
+    if (pet.id !== shownPetId) {
+        setShownPetId(pet.id);
+        setSelected(null);
+        setHoveredId(null);
+        setPending(null);
+    }
+    // Another service to show: fly there, then open it.
+    if (focus && focus.version !== focusVersion) {
+        setFocusVersion(focus.version);
+        setSelected(null);
+        setHoveredId(null);
+        setPending({ id: focus.service.id, location: focus.service.location });
+        setFlight(focus);
+    }
+
+    useEffect(() => {
+        if (!map || !flight) return;
+        const { lat, lng } = flight.service.location;
+        const zoom = Math.max(map.getZoom(), FOCUS_ZOOM);
+        if (prefersReducedMotion()) {
+            map.setView([lat, lng], zoom, { animate: false });
+        } else {
+            map.flyTo([lat, lng], zoom, { duration: 0.8 });
+        }
+    }, [map, flight]);
 
     // End the frame at the bottom of the window, wherever the header above
     // leaves it, so the whole search fits on one screen. On phones that also
@@ -99,7 +183,8 @@ export function MapExplorer({
     }, [qInput, filters.q, updateParams]);
 
     useEffect(() => {
-        const valid = priceInput === '' || Number(priceInput) > 0;
+        const price = Number(priceInput);
+        const valid = priceInput === '' || (price > 0 && price <= MAX_PRICE);
         if (!valid || priceInput === filters.maxPrice) return;
         const timer = window.setTimeout(() => {
             setSelected(null);
@@ -131,10 +216,17 @@ export function MapExplorer({
             point.y >= clear.top &&
             point.y <= bottomEdge;
         if (inView) return;
-        map.panBy([
-            point.x - (clear.left + size.x - clear.right) / 2,
-            point.y - (clear.top + bottomEdge) / 2,
-        ]);
+        const dx = point.x - (clear.left + size.x - clear.right) / 2;
+        const dy = point.y - (clear.top + bottomEdge) / 2;
+        // Leaflet's default 0.25s pan reads as a jump. Glide instead, a
+        // little longer for longer moves, so the eye can follow the pin.
+        const duration = Math.min(0.9, 0.45 + Math.hypot(dx, dy) / 2000);
+        map.panBy(
+            [dx, dy],
+            prefersReducedMotion()
+                ? { animate: false }
+                : { duration, easeLinearity: 0.2 },
+        );
     }, [map, selected, isDesktop]);
 
     function changeViewport(next: Viewport) {
@@ -160,20 +252,21 @@ export function MapExplorer({
 
     const recommendations = data?.recommendations ?? [];
 
-    // "Show on map" opens here with ?service=<id>: once the first results
-    // arrive, open that service. (Adjusting state while rendering, so the
-    // details show in the same paint as the results.)
-    const [focusId, setFocusId] = useState(() => Number(params.get('service')) || null);
-    if (focusId !== null && data) {
-        setFocusId(null);
-        const match = data.recommendations.find((item) => item.service.id === focusId);
+    // Open the service waiting to be shown once results that would list it
+    // arrive (in the same paint). If they don't list it, it is filtered out
+    // or not for this pet, and the map just stays there.
+    if (pending && data && covers(data, pending)) {
+        setPending(null);
+        const match = data.recommendations.find(
+            (item) => item.service.id === pending.id,
+        );
         if (match) setSelected(match);
     }
-    // Then drop the parameter, so a refresh doesn't reopen it.
+    // Then drop the ?service= parameter, so a refresh doesn't reopen it.
     const hasFocusParam = params.has('service');
     useEffect(() => {
-        if (focusId === null && hasFocusParam) updateParams({ service: null });
-    }, [focusId, hasFocusParam, updateParams]);
+        if (pending === null && hasFocusParam) updateParams({ service: null });
+    }, [pending, hasFocusParam, updateParams]);
 
     const first = recommendations[0];
     const bestId =
@@ -225,6 +318,7 @@ export function MapExplorer({
                     onBack={() => setSelected(null)}
                     onShowReviews={onShowReviews}
                     onWriteReview={onWriteReview}
+                    bestId={bestId}
                     isDesktop={isDesktop}
                 />
                 <div className="absolute inset-0 lg:static lg:col-start-1 lg:row-span-2 lg:row-start-1">

@@ -1,25 +1,35 @@
 """gRPC entry point for the recommendation engine."""
 
 import os
+import signal
 from concurrent import futures
 
 import grpc
+import psycopg
 
 import recommendation_pb2
 import recommendation_pb2_grpc
+from config import database_url
 from engine import Pet, Service, recommend
 from events import start_consumer
-from store import RecommendationStore
-from config import database_url
+from store import RatingStore
 
 
 class RecommendationEngine(recommendation_pb2_grpc.RecommendationEngineServicer):
-    def __init__(self, store: RecommendationStore):
+    def __init__(self, store: RatingStore):
         self.store = store
 
-    def _rank(self, request):
-        """Rank the request's services and return match dicts for protobuf."""
-        ratings = self.store.ratings()
+    def _ratings(self, service_ids: list[int]) -> dict[int, tuple[float, int]]:
+        """Ratings only break ties, so rank without them if the cache is unreachable."""
+        try:
+            return self.store.ratings(service_ids)
+        except psycopg.Error as error:
+            print(f"Ranking without ratings; rating cache unavailable ({error!r})", flush=True)
+            return {}
+
+    def Recommend(self, request, context):
+        # Only the services in this request, not the whole ratings table.
+        ratings = self._ratings([item.id for item in request.services])
         pet = Pet(
             species=request.pet.species,
             needs=tuple(request.pet.needs),
@@ -40,77 +50,22 @@ class RecommendationEngine(recommendation_pb2_grpc.RecommendationEngineServicer)
             request.limit,
             {service_id: average for service_id, (average, _) in ratings.items()},
         )
-        return [
-            {
-                "service_id": match.service_id,
-                "score": match.score,
-                "matched_needs": list(match.matched_needs),
-                "average_rating": ratings.get(match.service_id, (0.0, 0))[0],
-                "review_count": ratings.get(match.service_id, (0.0, 0))[1],
-            }
-            for match in matches
-        ]
-
-    @staticmethod
-    def _validate_write(pet_id, input_request, context):
-        if pet_id <= 0 or input_request.limit <= 0 or input_request.limit > 100:
-            context.abort(
-                grpc.StatusCode.INVALID_ARGUMENT,
-                "pet_id and limit must be positive; limit must be at most 100",
+        response = recommendation_pb2.RecommendationResponse()
+        for match in matches:
+            average, count = ratings.get(match.service_id, (0.0, 0))
+            response.matches.add(
+                service_id=match.service_id,
+                score=match.score,
+                matched_needs=match.matched_needs,
+                average_rating=average,
+                review_count=count,
             )
-        if not input_request.HasField("pet") or not input_request.pet.species.strip():
-            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "pet species is required")
-
-    def Recommend(self, request, context):
-        return recommendation_pb2.RecommendationResponse(
-            matches=[recommendation_pb2.Match(**match) for match in self._rank(request)]
-        )
-
-    def CreateRecommendation(self, request, context):
-        self._validate_write(request.pet_id, request.input, context)
-        matches = self._rank(request.input)
-        return recommendation_pb2.SavedRecommendation(
-            **self.store.create(request.pet_id, request.input.limit, matches)
-        )
-
-    def GetRecommendation(self, request, context):
-        record = self.store.get(request.id)
-        if record is None:
-            context.abort(grpc.StatusCode.NOT_FOUND, "Recommendation not found")
-        return recommendation_pb2.SavedRecommendation(**record)
-
-    def ListRecommendations(self, request, context):
-        if request.pet_id <= 0:
-            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "pet_id must be positive")
-        return recommendation_pb2.ListRecommendationsResponse(
-            recommendations=[
-                recommendation_pb2.SavedRecommendation(**record)
-                for record in self.store.list_for_pet(request.pet_id)
-            ]
-        )
-
-    def UpdateRecommendation(self, request, context):
-        self._validate_write(request.pet_id, request.input, context)
-        existing = self.store.get(request.id)
-        if existing is None or existing["pet_id"] != request.pet_id:
-            context.abort(grpc.StatusCode.NOT_FOUND, "Recommendation not found")
-        matches = self._rank(request.input)
-        record = self.store.update(
-            request.id, request.pet_id, request.input.limit, matches
-        )
-        if record is None:
-            context.abort(grpc.StatusCode.NOT_FOUND, "Recommendation not found")
-        return recommendation_pb2.SavedRecommendation(**record)
-
-    def DeleteRecommendation(self, request, context):
-        if not self.store.delete(request.id):
-            context.abort(grpc.StatusCode.NOT_FOUND, "Recommendation not found")
-        return recommendation_pb2.DeleteRecommendationResponse(deleted=True)
+        return response
 
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-    store = RecommendationStore(database_url())
+    store = RatingStore(database_url())
     recommendation_pb2_grpc.add_RecommendationEngineServicer_to_server(
         RecommendationEngine(store), server
     )
@@ -119,6 +74,10 @@ def serve():
     if server.add_insecure_port(address) == 0:
         raise RuntimeError(f"Could not bind gRPC server to {address}")
     server.start()
+    # As PID 1 in a container, Python ignores SIGTERM unless it has a handler,
+    # so `docker stop` and Kubernetes would wait and then kill it. Finish
+    # in-flight calls for up to 5 seconds instead.
+    signal.signal(signal.SIGTERM, lambda *_: server.stop(5))
     print(f"Recommendation gRPC server listening on {address}", flush=True)
     try:
         server.wait_for_termination()

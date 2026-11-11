@@ -173,6 +173,22 @@ body {
     min-height: 100vh;
 }
 
+/* Results ease in when they replace the loading rows. */
+@keyframes results-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+}
+.results-fade-in {
+    animation: results-fade-in 220ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+    .results-fade-in {
+        animation: none;
+    }
+}
+
 /* Vector templates define their own colours and detail, independently of the
    page theme. Keep the map canvas and service markers free of colour filters. */
 .recommendation-map {

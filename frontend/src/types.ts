@@ -33,25 +33,9 @@ export type Pet = {
     maxPrice: number;
 };
 
-export type UserProfile = {
-    name: string;
-    email: string;
-    pets: Pet[];
-};
-
-export type PetRecommendations = {
-    pet: Pet;
-    recommendations: {
-        service: CatalogItem;
-        score: number;
-        matchedNeeds: string[];
-        averageRating: number;
-        reviewCount: number;
-    }[];
-};
-
-export type RecommendationMatch = {
-    serviceId: number;
+// A ranked catalog service, as the recommendation map returns it.
+export type Recommendation = {
+    service: CatalogItem;
     score: number;
     matchedNeeds: string[];
     averageRating: number;
@@ -92,15 +76,6 @@ export type ServiceRating = {
     photoCount: number;
 };
 
-export type SavedRecommendation = {
-    id: string;
-    petId: number;
-    limit: number;
-    matches: RecommendationMatch[];
-    createdAt: string;
-    updatedAt: string;
-};
-
 export type MapBounds = {
     minLat: number;
     minLng: number;
@@ -112,7 +87,7 @@ export type MapBounds = {
 // the map is zoomed out past `detailZoom`.
 export type MapMode = 'detail' | 'top';
 
-export type MapRecommendation = PetRecommendations['recommendations'][number] & {
+export type MapRecommendation = Recommendation & {
     // False for nearby services that cover none of the pet's needs.
     matched: boolean;
 };

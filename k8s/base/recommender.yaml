@@ -10,25 +10,12 @@ spec:
       port: 50051
       targetPort: grpc
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: recommender-headless
-spec:
-  clusterIP: None
-  selector:
-    app: recommender
-  ports:
-    - name: grpc
-      port: 50051
----
-# One replica: saved lists and ratings live in SQLite on a ReadWriteOnce volume.
+# Stateless: the rating cache lives in Supabase PostgreSQL (DATABASE_URL).
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: recommender
 spec:
-  serviceName: recommender-headless
   replicas: 1
   selector:
     matchLabels:
@@ -45,11 +32,11 @@ spec:
             - name: grpc
               containerPort: 50051
           env:
-            - name: RECOMMENDATION_DB_PATH
+            - name: DATABASE_URL
               valueFrom:
-                configMapKeyRef:
-                  name: pawpal-config
-                  key: RECOMMENDATION_DB_PATH
+                secretKeyRef:
+                  name: pawpal-secrets
+                  key: DATABASE_URL
             - name: RABBITMQ_URL
               valueFrom:
                 secretKeyRef:
@@ -73,14 +60,3 @@ spec:
               memory: 192Mi
             limits:
               memory: 384Mi
-          volumeMounts:
-            - name: data
-              mountPath: /data
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 1Gi

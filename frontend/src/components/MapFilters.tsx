@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import {
+    MAX_PRICE,
+    MAX_SEARCH_LENGTH,
     RATING_OPTIONS,
     useCategoriesFor,
     type MapFilters as Filters,
@@ -74,7 +76,7 @@ export function MapFilters({
                         value={qInput}
                         onChange={(event) => onQInput(event.target.value)}
                         placeholder="Grooming, Samyan, overnight..."
-                        maxLength={100}
+                        maxLength={MAX_SEARCH_LENGTH}
                         className={`${controlClass} w-full pl-9`}
                     />
                 </label>
@@ -138,6 +140,7 @@ export function MapFilters({
                                 type="number"
                                 inputMode="decimal"
                                 min={1}
+                                max={MAX_PRICE}
                                 step="any"
                                 value={priceInput}
                                 onChange={(event) => onPriceInput(event.target.value)}

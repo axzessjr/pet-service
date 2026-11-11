@@ -19,7 +19,7 @@ import {
     type Viewport,
 } from '../mapApi';
 import { categoryColor, categoryIcon, formatPrice, matchLabel, UNMATCHED_COLOR } from './ui';
-import { MAP_STYLES, type MapStyle } from '../mapStyles';
+import { MAP_STYLE_LABELS, MAP_STYLES, type MapStyle } from '../mapStyles';
 import { VectorBasemap, type BasemapStatus } from './VectorBasemap';
 
 const MAP_STYLE_KEY = 'pawpal-map-style';
@@ -27,7 +27,7 @@ const MAP_STYLE_KEY = 'pawpal-map-style';
 function savedMapStyle(): MapStyle {
     try {
         const saved = localStorage.getItem(MAP_STYLE_KEY);
-        // Previous raster skins also move to the new, less detailed default.
+        // An unknown value (such as a style that no longer exists) falls back.
         return MAP_STYLES.find((style) => style === saved) ?? 'calm';
     } catch {
         return 'calm';
@@ -386,9 +386,11 @@ export function RecommendationMap({
                     }}
                     className="min-h-11 cursor-pointer rounded-lg bg-white px-1 text-sm font-semibold text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
                 >
-                    <option value="calm">Calm</option>
-                    <option value="streets">Streets</option>
-                    <option value="night">Night</option>
+                    {MAP_STYLES.map((style) => (
+                        <option key={style} value={style}>
+                            {MAP_STYLE_LABELS[style]}
+                        </option>
+                    ))}
                 </select>
             </label>
 

@@ -2,6 +2,11 @@ import type { StyleSpecification } from 'maplibre-gl';
 
 export const MAP_STYLES = ['calm', 'streets', 'night'] as const;
 export type MapStyle = (typeof MAP_STYLES)[number];
+export const MAP_STYLE_LABELS: Record<MapStyle, string> = {
+    calm: 'Calm',
+    streets: 'Streets',
+    night: 'Night',
+};
 type StyleLayer = StyleSpecification['layers'][number];
 
 // OpenFreeMap supports custom styles; retain its sources and bilingual labels.

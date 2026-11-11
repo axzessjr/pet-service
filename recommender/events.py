@@ -7,7 +7,7 @@ import time
 
 import pika
 
-from store import RecommendationStore
+from store import RatingStore
 
 EXCHANGE = "pawpal.events"
 QUEUE = "recommendation.review-events"
@@ -21,7 +21,7 @@ def _integer(event: dict, name: str, minimum: int) -> int:
     return value
 
 
-def handle_review_event(store: RecommendationStore, body: bytes) -> bool:
+def handle_review_event(store: RatingStore, body: bytes) -> bool:
     """Apply one review event; return False when it was older than stored data.
 
     Raises ValueError when the message is not a valid review event.
@@ -45,7 +45,7 @@ def handle_review_event(store: RecommendationStore, body: bytes) -> bool:
     return applied
 
 
-def consume_forever(store: RecommendationStore, url: str, retry_seconds: float = 5) -> None:
+def consume_forever(store: RatingStore, url: str, retry_seconds: float = 5) -> None:
     while True:
         connection = None
         try:
@@ -78,7 +78,7 @@ def consume_forever(store: RecommendationStore, url: str, retry_seconds: float =
         time.sleep(retry_seconds)
 
 
-def start_consumer(store: RecommendationStore) -> threading.Thread | None:
+def start_consumer(store: RatingStore) -> threading.Thread | None:
     url = os.getenv("RABBITMQ_URL")
     if not url:
         print("RABBITMQ_URL is not set; service ratings will not update", flush=True)
