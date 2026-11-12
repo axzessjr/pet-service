@@ -59,7 +59,7 @@ export function LoginPage({ setLoggedIn, setCurrentUser }: LoginPageProps) {
                 setFormError(data.message ?? 'Could not log in. Please try again.');
             }
         } catch {
-            setFormError('Could not reach Pawpal. Check your connection and try again.');
+            setFormError('Could not reach PetBuddy. Check your connection and try again.');
         } finally {
             setSubmitting(false);
             setLoading(false);
@@ -84,7 +84,7 @@ export function LoginPage({ setLoggedIn, setCurrentUser }: LoginPageProps) {
                     <span aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-sun text-2xl text-sun-ink">
                         <i className="fa-solid fa-paw"></i>
                     </span>
-                    <h1 className="mb-1 mt-3 text-3xl font-bold text-gray-900">Pawpal</h1>
+                    <h1 className="mb-1 mt-3 text-3xl font-bold text-gray-900">PetBuddy</h1>
                     <p className="m-0 text-gray-600">Log in to find care for your pet.</p>
                 </div>
 

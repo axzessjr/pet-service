@@ -203,7 +203,7 @@ export function CatalogPage({ currentUser }: CatalogPageProps) {
             <div className="mb-5">
                 <h2 className="m-0 text-2xl font-bold text-gray-900">Catalog</h2>
                 <p className="mb-0 mt-1.5 text-gray-600">
-                    Every service on Pawpal. Used one? Leave a review to help other owners.
+                    Every service on PetBuddy. Used one? Leave a review to help other owners.
                 </p>
             </div>
 

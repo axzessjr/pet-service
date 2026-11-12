@@ -1,4 +1,4 @@
-# Pawpal บน Kubernetes
+# PetBuddy บน Kubernetes
 
 Manifest สำหรับรันบน Docker Desktop Kubernetes (`overlays/local`) ทุก service หากันด้วยชื่อ Kubernetes Service
 

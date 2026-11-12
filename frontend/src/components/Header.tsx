@@ -23,7 +23,7 @@ export function Header({ currentUser, onLogout }: HeaderProps) {
                 className="mr-auto flex items-center rounded-md text-3xl font-bold text-gray-900 no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-teal-700"
             >
                 <i aria-hidden="true" className="fa-solid fa-paw mr-2 text-teal-500"></i>
-                Pawpal
+                PetBuddy
             </Link>
             <NavLink to={HOME_PATH} className={linkClass}>
                 For my pet
