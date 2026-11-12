@@ -1,6 +1,6 @@
-# Pawpal
+# PetBuddy
 
-Pawpal is a pet service catalog with recommendations for a selected pet. The React frontend calls a NestJS HTTP API, which acts as the API gateway. NestJS sends the pet and current catalog over gRPC to a Python service, which ranks compatible services by tag similarity.
+PetBuddy is a pet service catalog with recommendations for a selected pet. The React frontend calls a NestJS HTTP API, which acts as the API gateway. NestJS sends the pet and current catalog over gRPC to a Python service, which ranks compatible services by tag similarity.
 
 After using a service, pet owners can review it with a rating, text, and photos. Reviews are kept by the review service, a separate NestJS service that stores them in MongoDB Atlas. Each review change is published to RabbitMQ, and the recommender uses the resulting average ratings to break ranking ties.
 
@@ -170,7 +170,7 @@ Bounds must be numbers with min below max and may span at most 2 degrees; `zoom`
 
 ## Reviews
 
-Pawpal does not take bookings. Owners find a service in the catalog or in their recommendations, use it with the provider directly, then come back to review it. Each review is for one visit, so an owner can review the same service again after each visit, and edit or delete any of their reviews later.
+PetBuddy does not take bookings. Owners find a service in the catalog or in their recommendations, use it with the provider directly, then come back to review it. Each review is for one visit, so an owner can review the same service again after each visit, and edit or delete any of their reviews later.
 
 A review has a 1-5 `rating` and can also have:
 

@@ -113,7 +113,7 @@ function AccountSection({ currentUser, onUserUpdated }: ProfilePageProps) {
             setEditing(false);
             setMessage('Your details are saved.');
         } catch {
-            setFormError('Could not reach Pawpal. Check your connection and try again.');
+            setFormError('Could not reach PetBuddy. Check your connection and try again.');
         } finally {
             setBusy(false);
         }
@@ -354,7 +354,7 @@ function PetsSection({ currentUser }: { currentUser: User | null }) {
             closeForm();
             setMessage({ text: isNew ? `${data.name} is added.` : `${data.name} is updated.`, error: false });
         } catch {
-            setError('Could not reach Pawpal. Check your connection and try again.');
+            setError('Could not reach PetBuddy. Check your connection and try again.');
         } finally {
             setSaving(false);
         }
