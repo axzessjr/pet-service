@@ -19,7 +19,7 @@ The service keeps only the review rating cache, in the `service_ratings` table o
 
 ## Rating events
 
-Ratings come from the usage and review service through RabbitMQ. A background thread in [`events.py`](events.py) binds the durable queue `recommendation.review-events` to the `pawpal.events` topic exchange with the routing key `review.*`. Each `review.created`, `review.updated`, or `review.deleted` message carries the service's new `averageRating`, `reviewCount`, and `version`. The consumer saves them in the `service_ratings` table of the same PostgreSQL database, then acknowledges the message.
+Ratings come from the usage and review service through RabbitMQ. A background thread in [`events.py`](events.py) binds the durable queue `recommendation.review-events` to the `petbuddy.events` topic exchange with the routing key `review.*`. Each `review.created`, `review.updated`, or `review.deleted` message carries the service's new `averageRating`, `reviewCount`, and `version`. The consumer saves them in the `service_ratings` table of the same PostgreSQL database, then acknowledges the message.
 
 Delivery is at-least-once, so the same event can arrive twice or late. The consumer keeps a rating only when its `version` is newer than the stored one, which makes redelivery harmless. Invalid messages are logged and dropped. If RabbitMQ is unavailable, gRPC keeps serving with the last known ratings and the consumer retries every five seconds. The native server defaults to the local RabbitMQ broker at `localhost:5672`; Compose uses `rabbitmq:5672`. Set `RABBITMQ_URL` to override it. Cloud database access requires internet connectivity even when RabbitMQ is local.
 

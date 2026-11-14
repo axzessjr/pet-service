@@ -1,24 +1,28 @@
 # Docker Desktop Kubernetes (kubeadm mode): images are built locally and tagged :dev.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: pawpal
+namespace: petbuddy
 resources:
   - ../../base
 images:
-  - name: pawpal/backend
+  - name: petbuddy/backend
     newTag: dev
-  - name: pawpal/review
+  - name: petbuddy/review
     newTag: dev
-  - name: pawpal/recommender
+  - name: petbuddy/recommender
     newTag: dev
-  - name: pawpal/frontend
+  - name: petbuddy/frontend
     newTag: dev
 # Two review pods, so deleting one in the demo causes no downtime.
+# Two recommender pods: the map keeps working while one restarts. Each backend
+# pod holds one gRPC connection, so a pod's calls go to one recommender at a time.
 replicas:
   - name: review
     count: 2
+  - name: recommender
+    count: 2
 secretGenerator:
-  - name: pawpal-secrets
+  - name: petbuddy-secrets
     envs:
       - secrets.env
     options:

@@ -67,7 +67,7 @@ let client: MongoClient | undefined;
                 const url = process.env.MONGODB_URL;
                 if (!url) throw new Error('Set MONGODB_URL in the root .env to your MongoDB Atlas connection string');
                 client = new MongoClient(url, {
-                    appName: 'pawpal-review',
+                    appName: 'petbuddy-review',
                     serverSelectionTimeoutMS: 10000,
                     ...(process.env.MONGODB_TLS_CERTIFICATE_KEY_FILE && {
                         tlsCertificateKeyFile: process.env.MONGODB_TLS_CERTIFICATE_KEY_FILE,

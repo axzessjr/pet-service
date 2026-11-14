@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * Pawpal colours, from the "Rescue" palette: teal #469387, orange #e69739,
+ * PetBuddy colours, from the "Rescue" palette: teal #469387, orange #e69739,
  * yellow #efc65d and sky #aad3dc. Tailwind's gray, teal, amber, red, green,
  * blue and white read these variables (see tailwind.config.js), so every
  * existing class follows the theme. Dark mode flips each scale, so "white"
