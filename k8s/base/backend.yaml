@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: pawpal/backend
+          image: petbuddy/backend
           ports:
             - name: http
               containerPort: 3000
@@ -34,17 +34,17 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: pawpal-secrets
+                  name: petbuddy-secrets
                   key: DATABASE_URL
             - name: REVIEW_URL
               valueFrom:
                 configMapKeyRef:
-                  name: pawpal-config
+                  name: petbuddy-config
                   key: REVIEW_URL
             - name: RECOMMENDATION_GRPC_URL
               valueFrom:
                 configMapKeyRef:
-                  name: pawpal-config
+                  name: petbuddy-config
                   key: RECOMMENDATION_GRPC_URL
           # The app has no /health yet; /catalog is what docker compose checks too.
           readinessProbe:

@@ -1,0 +1,179 @@
+{
+  "run": "stress",
+  "duration_s": 252,
+  "vus_max": 400,
+  "requests": 27348,
+  "req_per_s": 108.7,
+  "error_pct": 15.24,
+  "statuses": {
+    "201": 400,
+    "200": 22780,
+    "503": 4168
+  },
+  "routes": {
+    "login": {
+      "count": 400,
+      "rate": 1.6,
+      "avg": 653.4,
+      "med": 353.0,
+      "p95": 1909.5,
+      "p99": 2061.7,
+      "max": 2248.1,
+      "error_pct": 0.0
+    },
+    "catalog": {
+      "count": 8994,
+      "rate": 35.7,
+      "avg": 630.7,
+      "med": 302.2,
+      "p95": 2050.8,
+      "p99": 3072.7,
+      "max": 3398.0,
+      "error_pct": 0.0
+    },
+    "pet_profile": {
+      "count": 8993,
+      "rate": 35.7,
+      "avg": 631.6,
+      "med": 297.5,
+      "p95": 2070.7,
+      "p99": 3088.4,
+      "max": 3267.7,
+      "error_pct": 0.0
+    },
+    "map": {
+      "count": 8961,
+      "rate": 35.6,
+      "avg": 2387.8,
+      "med": 3016.1,
+      "p95": 4273.0,
+      "p99": 4530.2,
+      "max": 4754.7,
+      "error_pct": 46.5
+    }
+  },
+  "windows": [
+    {
+      "window": "0-30s",
+      "vus_max": 49,
+      "req_per_s": 38.7,
+      "p95_all_ms": 686,
+      "p95_map_ms": 774,
+      "errors": 0,
+      "error_pct": 0.0,
+      "gateway_ready_pods": 1,
+      "gateway_cpu_m": 182,
+      "hpa_cpu_pct": 1,
+      "recommender_cpu_m": 81
+    },
+    {
+      "window": "30-60s",
+      "vus_max": 50,
+      "req_per_s": 53.4,
+      "p95_all_ms": 817,
+      "p95_map_ms": 862,
+      "errors": 0,
+      "error_pct": 0.0,
+      "gateway_ready_pods": 1,
+      "gateway_cpu_m": 183,
+      "hpa_cpu_pct": 183,
+      "recommender_cpu_m": 102
+    },
+    {
+      "window": "60-90s",
+      "vus_max": 99,
+      "req_per_s": 91.8,
+      "p95_all_ms": 2002,
+      "p95_map_ms": 2302,
+      "errors": 0,
+      "error_pct": 0.0,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 443,
+      "hpa_cpu_pct": 183,
+      "recommender_cpu_m": 219
+    },
+    {
+      "window": "90-120s",
+      "vus_max": 100,
+      "req_per_s": 88.5,
+      "p95_all_ms": 3067,
+      "p95_map_ms": 3167,
+      "errors": 66,
+      "error_pct": 2.49,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 341,
+      "hpa_cpu_pct": 183,
+      "recommender_cpu_m": 155
+    },
+    {
+      "window": "120-150s",
+      "vus_max": 199,
+      "req_per_s": 128.4,
+      "p95_all_ms": 3235,
+      "p95_map_ms": 3364,
+      "errors": 663,
+      "error_pct": 17.22,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 486,
+      "hpa_cpu_pct": 113,
+      "recommender_cpu_m": 185
+    },
+    {
+      "window": "150-180s",
+      "vus_max": 200,
+      "req_per_s": 154.2,
+      "p95_all_ms": 3349,
+      "p95_map_ms": 3439,
+      "errors": 1030,
+      "error_pct": 22.27,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 502,
+      "hpa_cpu_pct": 167,
+      "recommender_cpu_m": 207
+    },
+    {
+      "window": "180-210s",
+      "vus_max": 399,
+      "req_per_s": 157.4,
+      "p95_all_ms": 4132,
+      "p95_map_ms": 4444,
+      "errors": 985,
+      "error_pct": 20.86,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 701,
+      "hpa_cpu_pct": 167,
+      "recommender_cpu_m": 202
+    },
+    {
+      "window": "210-240s",
+      "vus_max": 400,
+      "req_per_s": 159.8,
+      "p95_all_ms": 4276,
+      "p95_map_ms": 4494,
+      "errors": 1067,
+      "error_pct": 22.25,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 701,
+      "hpa_cpu_pct": 211,
+      "recommender_cpu_m": 206
+    },
+    {
+      "window": "240-252s",
+      "vus_max": 397,
+      "req_per_s": 101.4,
+      "p95_all_ms": 4191,
+      "p95_map_ms": 4236,
+      "errors": 357,
+      "error_pct": 30.15,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 402,
+      "hpa_cpu_pct": 211,
+      "recommender_cpu_m": 199
+    }
+  ],
+  "timeline": [
+    "t+51s: gateway CPU first at or above 70% of request (183%), ~50 VUs",
+    "t+51s: HPA wants 1 -> 3 (~50 VUs)",
+    "t+62s: gateway pods Ready 1 -> 3 (~54 VUs)"
+  ]
+}

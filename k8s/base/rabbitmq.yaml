@@ -53,12 +53,12 @@ spec:
             - name: RABBITMQ_DEFAULT_USER
               valueFrom:
                 secretKeyRef:
-                  name: pawpal-secrets
+                  name: petbuddy-secrets
                   key: RABBITMQ_USER
             - name: RABBITMQ_DEFAULT_PASS
               valueFrom:
                 secretKeyRef:
-                  name: pawpal-secrets
+                  name: petbuddy-secrets
                   key: RABBITMQ_PASSWORD
           readinessProbe:
             exec:

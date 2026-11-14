@@ -1,9 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: pawpal
+namespace: petbuddy
 labels:
   - pairs:
-      app.kubernetes.io/part-of: pawpal
+      app.kubernetes.io/part-of: petbuddy
 resources:
   - namespace.yaml
   - configmap.yaml

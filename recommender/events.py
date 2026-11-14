@@ -9,7 +9,7 @@ import pika
 
 from store import RatingStore
 
-EXCHANGE = "pawpal.events"
+EXCHANGE = "petbuddy.events"
 QUEUE = "recommendation.review-events"
 ROUTING_KEY = "review.*"
 

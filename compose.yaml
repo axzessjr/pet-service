@@ -5,8 +5,8 @@ services:
     hostname: rabbitmq
     environment:
       # The built-in guest user only works from localhost, so services use this one.
-      RABBITMQ_DEFAULT_USER: pawpal
-      RABBITMQ_DEFAULT_PASS: pawpal
+      RABBITMQ_DEFAULT_USER: petbuddy
+      RABBITMQ_DEFAULT_PASS: petbuddy
     ports:
       - "127.0.0.1:15672:15672" # management UI: http://localhost:15672
       - "127.0.0.1:5672:5672" # native local services
@@ -29,7 +29,7 @@ services:
       - "50051"
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in the root .env}
-      RABBITMQ_URL: amqp://pawpal:pawpal@rabbitmq:5672
+      RABBITMQ_URL: amqp://petbuddy:petbuddy@rabbitmq:5672
     # No dependency on RabbitMQ: the consumer reconnects on its own, and
     # recommendations keep working (with the last known ratings) while it is down.
     healthcheck:
@@ -67,7 +67,7 @@ services:
     environment:
       MONGODB_URL: ${MONGODB_URL:?Set MONGODB_URL in the root .env}
       MONGODB_DB: ${MONGODB_DB:-reviews}
-      RABBITMQ_URL: amqp://pawpal:pawpal@rabbitmq:5672
+      RABBITMQ_URL: amqp://petbuddy:petbuddy@rabbitmq:5672
     # RabbitMQ is not required to start: events stay pending in Atlas until it is up.
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]

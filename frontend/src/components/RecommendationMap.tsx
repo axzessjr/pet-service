@@ -22,6 +22,7 @@ import { categoryColor, categoryIcon, formatPrice, matchLabel, UNMATCHED_COLOR }
 import { MAP_STYLE_LABELS, MAP_STYLES, type MapStyle } from '../mapStyles';
 import { VectorBasemap, type BasemapStatus } from './VectorBasemap';
 
+// Keeps the old product name so the style users already picked survives the rename.
 const MAP_STYLE_KEY = 'pawpal-map-style';
 
 function savedMapStyle(): MapStyle {

@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: recommender
-          image: pawpal/recommender
+          image: petbuddy/recommender
           ports:
             - name: grpc
               containerPort: 50051
@@ -35,12 +35,12 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: pawpal-secrets
+                  name: petbuddy-secrets
                   key: DATABASE_URL
             - name: RABBITMQ_URL
               valueFrom:
                 secretKeyRef:
-                  name: pawpal-secrets
+                  name: petbuddy-secrets
                   key: RABBITMQ_URL
           readinessProbe:
             exec:

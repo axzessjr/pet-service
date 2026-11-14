@@ -1,5 +1,5 @@
 const TOKEN_KEY = 'token';
-export const UNAUTHORIZED_EVENT = 'pawpal:unauthorized';
+export const UNAUTHORIZED_EVENT = 'petbuddy:unauthorized';
 
 export function getAuthToken(): string | null {
     return localStorage.getItem(TOKEN_KEY);

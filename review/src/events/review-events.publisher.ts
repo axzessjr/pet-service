@@ -11,7 +11,7 @@ import { Db, MongoServerError } from 'mongodb';
 import { randomUUID } from 'node:crypto';
 import { MONGO_DB, ReviewDocument } from '../database/mongo.module';
 
-export const EVENTS_EXCHANGE = 'pawpal.events';
+export const EVENTS_EXCHANGE = 'petbuddy.events';
 
 // Payload the recommender consumes. It carries the service's current totals,
 // so the consumer stores them directly instead of replaying reviews.

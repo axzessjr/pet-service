@@ -1,0 +1,141 @@
+{
+  "run": "load",
+  "duration_s": 159,
+  "vus_max": 50,
+  "requests": 10607,
+  "req_per_s": 66.5,
+  "error_pct": 0.0,
+  "statuses": {
+    "201": 50,
+    "200": 10557
+  },
+  "routes": {
+    "login": {
+      "count": 50,
+      "rate": 0.3,
+      "avg": 305.7,
+      "med": 227.0,
+      "p95": 591.8,
+      "p99": 865.0,
+      "max": 1058.8,
+      "error_pct": 0.0
+    },
+    "catalog": {
+      "count": 3519,
+      "rate": 22.1,
+      "avg": 245.0,
+      "med": 148.6,
+      "p95": 540.8,
+      "p99": 598.6,
+      "max": 1150.3,
+      "error_pct": 0.0
+    },
+    "pet_profile": {
+      "count": 3519,
+      "rate": 22.1,
+      "avg": 237.1,
+      "med": 163.1,
+      "p95": 560.3,
+      "p99": 597.5,
+      "max": 1238.6,
+      "error_pct": 0.0
+    },
+    "map": {
+      "count": 3519,
+      "rate": 22.1,
+      "avg": 511.3,
+      "med": 466.7,
+      "p95": 822.1,
+      "p99": 1101.7,
+      "max": 1733.8,
+      "error_pct": 0.0
+    }
+  },
+  "windows": [
+    {
+      "window": "0-30s",
+      "vus_max": 49,
+      "req_per_s": 38.9,
+      "p95_all_ms": 679,
+      "p95_map_ms": 748,
+      "errors": 0,
+      "error_pct": 0.0,
+      "gateway_ready_pods": 1,
+      "gateway_cpu_m": 223,
+      "hpa_cpu_pct": 19,
+      "recommender_cpu_m": 91
+    },
+    {
+      "window": "30-60s",
+      "vus_max": 50,
+      "req_per_s": 54.0,
+      "p95_all_ms": 808,
+      "p95_map_ms": 844,
+      "errors": 0,
+      "error_pct": 0.0,
+      "gateway_ready_pods": 1,
+      "gateway_cpu_m": 223,
+      "hpa_cpu_pct": 187,
+      "recommender_cpu_m": 111
+    },
+    {
+      "window": "60-90s",
+      "vus_max": 50,
+      "req_per_s": 78.0,
+      "p95_all_ms": 701,
+      "p95_map_ms": 817,
+      "errors": 0,
+      "error_pct": 0.0,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 302,
+      "hpa_cpu_pct": 187,
+      "recommender_cpu_m": 170
+    },
+    {
+      "window": "90-120s",
+      "vus_max": 50,
+      "req_per_s": 83.0,
+      "p95_all_ms": 698,
+      "p95_map_ms": 896,
+      "errors": 0,
+      "error_pct": 0.0,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 302,
+      "hpa_cpu_pct": 187,
+      "recommender_cpu_m": 170
+    },
+    {
+      "window": "120-150s",
+      "vus_max": 50,
+      "req_per_s": 85.8,
+      "p95_all_ms": 599,
+      "p95_map_ms": 706,
+      "errors": 0,
+      "error_pct": 0.0,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 235,
+      "hpa_cpu_pct": 88,
+      "recommender_cpu_m": 164
+    },
+    {
+      "window": "150-159s",
+      "vus_max": 48,
+      "req_per_s": 44.0,
+      "p95_all_ms": 465,
+      "p95_map_ms": 542,
+      "errors": 0,
+      "error_pct": 0.0,
+      "gateway_ready_pods": 3,
+      "gateway_cpu_m": 235,
+      "hpa_cpu_pct": 88,
+      "recommender_cpu_m": 164
+    }
+  ],
+  "timeline": [
+    "t+52s: gateway CPU first at or above 70% of request (187%), ~50 VUs",
+    "t+52s: HPA wants 1 -> 3 (~50 VUs)",
+    "t+69s: gateway pods Ready 1 -> 3 (~50 VUs)",
+    "t+231s: HPA wants 3 -> 1 (~3 VUs)",
+    "t+231s: gateway pods Ready 3 -> 1 (~3 VUs)"
+  ]
+}

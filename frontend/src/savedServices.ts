@@ -10,6 +10,7 @@ const listeners = new Set<() => void>();
 const cache = new Map<number, number[]>();
 const EMPTY: number[] = [];
 
+// Keeps the old product name so services users already saved survive the rename.
 const keyFor = (petId: number) => `pawpal:saved-services:pet:${petId}`;
 
 function readIds(petId: number): number[] {

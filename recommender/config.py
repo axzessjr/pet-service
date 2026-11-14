@@ -10,7 +10,7 @@ def load_environment() -> None:
     # Compose supplies these values directly. Native development reads the
     # shared root .env. Explicit process variables always take precedence.
     load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-    os.environ.setdefault("RABBITMQ_URL", "amqp://pawpal:pawpal@localhost:5672")
+    os.environ.setdefault("RABBITMQ_URL", "amqp://petbuddy:petbuddy@localhost:5672")
 
 
 def database_url() -> str:
