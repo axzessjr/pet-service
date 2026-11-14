@@ -52,7 +52,7 @@ After configuring both cloud databases and migrating any existing data below, ru
 docker compose up -d --build
 ```
 
-Open <http://localhost:5173>. The API is at <http://localhost:3000>. RabbitMQ's management UI is at <http://localhost:15672> (user `pawpal`, password `pawpal`). Its AMQP port is bound to `127.0.0.1:5672` for native local services. Stop the stack with `docker compose down`; keep its persistent RabbitMQ volume.
+Open <http://localhost:5173>. The API is at <http://localhost:3000>. RabbitMQ's management UI is at <http://localhost:15672> (user `petbuddy`, password `petbuddy`). Its AMQP port is bound to `127.0.0.1:5672` for native local services. Stop the stack with `docker compose down`; keep its persistent RabbitMQ volume.
 
 The normal stack starts no local application database. The `migration` profile exposes the old MongoDB volume on `127.0.0.1:27018` solely for copying existing data.
 
@@ -226,7 +226,7 @@ Each review is one document in the `reviews` collection, with the service and pe
 ### How review events reach the recommender
 
 1. When the review service saves a change, it also marks the review with the event to send (`review.created`, `review.updated`, or `review.deleted`). Both are written in one MongoDB update, so the event cannot be lost without the change.
-2. A publisher in the same service checks for marked reviews every second. A lease in the `locks` collection lets only one publisher run at a time. The publisher works out the service's new average and review count from its reviews and takes the next version number from `service_versions`. It publishes to the `pawpal.events` topic exchange, waits for RabbitMQ to confirm, and clears the mark.
+2. A publisher in the same service checks for marked reviews every second. A lease in the `locks` collection lets only one publisher run at a time. The publisher works out the service's new average and review count from its reviews and takes the next version number from `service_versions`. It publishes to the `petbuddy.events` topic exchange, waits for RabbitMQ to confirm, and clears the mark.
 3. The recommender consumes `review.*` from the `recommendation.review-events` queue and stores each service's `averageRating` and `reviewCount`. Every event has an increasing `version`, so duplicates and late events are ignored.
 
 A version is never lower than the current time in milliseconds. Versions therefore keep increasing even after the review database is replaced, for example when moving from the local MongoDB to Atlas.

@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: pawpal/frontend
+          image: petbuddy/frontend
           ports:
             - name: http
               containerPort: 80

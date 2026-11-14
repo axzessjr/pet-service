@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: pawpal-config
+  name: petbuddy-config
 data:
   REVIEW_URL: http://review:3001
   RECOMMENDATION_GRPC_URL: recommender:50051

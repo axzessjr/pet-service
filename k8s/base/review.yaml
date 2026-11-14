@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: review
-          image: pawpal/review
+          image: petbuddy/review
           ports:
             - name: http
               containerPort: 3001
@@ -35,17 +35,17 @@ spec:
             - name: MONGODB_URL
               valueFrom:
                 secretKeyRef:
-                  name: pawpal-secrets
+                  name: petbuddy-secrets
                   key: MONGODB_URL
             - name: MONGODB_DB
               valueFrom:
                 configMapKeyRef:
-                  name: pawpal-config
+                  name: petbuddy-config
                   key: MONGODB_DB
             - name: RABBITMQ_URL
               valueFrom:
                 secretKeyRef:
-                  name: pawpal-secrets
+                  name: petbuddy-secrets
                   key: RABBITMQ_URL
           # /health pings MongoDB, so a pod that lost its database leaves the EndpointSlice.
           readinessProbe:

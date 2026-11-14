@@ -3,14 +3,25 @@ import { Pool } from 'pg';
 
 export const PG_CONNECTION = 'PG_CONNECTION';
 
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false,
+    },
+});
+
+// Supabase closes idle pooled connections now and then. pg reports that as an
+// 'error' event on the pool, and an unhandled 'error' event stops the whole
+// process. Log it instead: the pool drops that client and opens a new one.
+pool.on('error', (error) => {
+    new Logger('DatabasePool').warn(
+        `Idle database connection closed: ${error.message}`,
+    );
+});
+
 const dbProvider = {
     provide: PG_CONNECTION,
-    useValue: new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: {
-            rejectUnauthorized: false,
-        },
-    }),
+    useValue: pool,
 };
 
 @Global()

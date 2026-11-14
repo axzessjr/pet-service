@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 export const JWT_SECRET =
-    process.env.JWT_SECRET ?? 'pawpal-dev-jwt-secret-change-in-production';
+    process.env.JWT_SECRET ?? 'petbuddy-dev-jwt-secret-change-in-production';
 
 export interface JwtPayload {
     sub: number;
